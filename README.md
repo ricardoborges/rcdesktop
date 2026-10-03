@@ -25,7 +25,9 @@ One detail worth knowing: wslc doesn't like being called concurrently. Two calls
 
 ## Installing
 
-Grab `rcdesktop-x86_64-pc-windows-msvc.zip` (or the `aarch64` one for ARM) from the [releases page](https://github.com/ricardoborges/rcdesktop/releases), unzip it anywhere and run `rcdesktop.exe`. The zip includes `rcompose.exe`, which the app uses to deploy Compose stacks; keep them in the same folder.
+Download [`rcdesktop-setup.exe`](https://github.com/ricardoborges/rcdesktop/releases/latest/download/rcdesktop-setup.exe) and run it. It installs RC Desktop for your user (no admin rights), with [rcompose](https://github.com/ricardoborges/rcompose) alongside it for Compose stacks, a Start menu shortcut and an uninstaller. It works on x64 and ARM64, and can optionally add rcompose to your `PATH` so you can use it from the terminal.
+
+Prefer no installer? The release also has `rcdesktop-x86_64-pc-windows-msvc.zip` (and an `aarch64` one): unzip it anywhere and run `rcdesktop.exe`. Keep `rcompose.exe` in the same folder.
 
 You need Windows 11 with the WSL container preview (`wslc.exe`) installed.
 

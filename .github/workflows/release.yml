@@ -67,8 +67,42 @@ jobs:
           name: rcdesktop-${{ matrix.target }}
           path: dist/*
 
-  release:
+  # One setup for both architectures, built from the zips above. The script
+  # comes from the commit the workflow runs on, so a manual run can add the
+  # installer to a release tagged before it existed.
+  installer:
     needs: build
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: zips
+          merge-multiple: true
+
+      - name: Build setup
+        shell: pwsh
+        run: |
+          $tag = "${{ inputs.tag || github.ref_name }}"
+          foreach ($t in 'x86_64', 'aarch64') {
+            Expand-Archive "zips/rcdesktop-$t-pc-windows-msvc.zip" -DestinationPath "stage/$t"
+          }
+          $iscc = "${env:ProgramFiles(x86)}/Inno Setup 6/ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress | Out-Null
+          }
+          & $iscc /Q "/DAppVersion=$($tag.TrimStart('v'))" "/DSrcX64=$PWD/stage/x86_64" "/DSrcArm64=$PWD/stage/aarch64" installer/rcdesktop.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC failed" }
+          (Get-FileHash dist/rcdesktop-setup.exe -Algorithm SHA256).Hash.ToLower() + "  rcdesktop-setup.exe" | Out-File -Encoding ascii dist/rcdesktop-setup.exe.sha256
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rcdesktop-setup
+          path: dist/*
+
+  release:
+    needs: [build, installer]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v4
