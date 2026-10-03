@@ -1,0 +1,222 @@
+import { Theme, Icons } from "../theme.slint";
+import { Icon } from "../components/button.slint";
+import { Card, PageHeader, Divider } from "../components/layout.slint";
+
+// Fluent-style on/off switch with a title and description.
+component ToggleRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    in property <bool> checked;
+    in property <bool> enabled: true;
+    in property <bool> last: false;
+    callback toggled(bool);
+
+    Rectangle {
+        border-radius: Theme.radius-sm;
+        background: touch.has-hover && root.enabled ? #ffffff08 : transparent;
+
+        touch := TouchArea {
+            enabled: root.enabled;
+            mouse-cursor: root.enabled ? pointer : default;
+            clicked => { root.toggled(!root.checked); }
+        }
+
+        HorizontalLayout {
+            padding-top: 12px;
+            padding-bottom: 12px;
+            spacing: Theme.spacing-md;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 2px;
+
+                Text {
+                    text: root.title;
+                    font-size: Theme.font-body;
+                    font-weight: 600;
+                    color: root.enabled ? Theme.text-main : Theme.text-dim;
+                }
+
+                Text {
+                    text: root.description;
+                    font-size: Theme.font-caption;
+                    color: Theme.text-dim;
+                    wrap: word-wrap;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                HorizontalLayout {
+                    spacing: 10px;
+
+                    Text {
+                        text: root.checked ? "On" : "Off";
+                        font-size: Theme.font-body;
+                        color: root.enabled ? Theme.text-muted : Theme.text-dim;
+                        vertical-alignment: center;
+                    }
+
+                    // Track and knob
+                    Rectangle {
+                        width: 40px;
+                        height: 20px;
+                        border-radius: 10px;
+                        background: !root.checked ? transparent
+                            : root.enabled ? Theme.primary : Theme.primary.with-alpha(0.4);
+                        border-width: root.checked ? 0px : 1px;
+                        border-color: root.enabled ? #ffffffb0 : #ffffff50;
+
+                        Rectangle {
+                            width: 12px;
+                            height: 12px;
+                            border-radius: 6px;
+                            x: root.checked ? parent.width - self.width - 4px : 4px;
+                            y: (parent.height - self.height) / 2;
+                            background: root.checked ? Theme.on-primary
+                                : root.enabled ? #ffffffc0 : #ffffff60;
+                            animate x { duration: 120ms; easing: ease-out; }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if !root.last : Divider {}
+}
+
+component Section inherits Card {
+    in property <string> title;
+    in property <string> icon;
+
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: Theme.spacing-md;
+        padding-bottom: Theme.spacing-xs;
+
+        HorizontalLayout {
+            height: 32px;
+            spacing: 10px;
+
+            Icon {
+                width: 18px;
+                text: root.icon;
+                color: Theme.primary;
+            }
+
+            Text {
+                text: root.title;
+                font-size: Theme.font-body-strong;
+                font-weight: 600;
+                color: Theme.text-main;
+                vertical-alignment: center;
+            }
+        }
+
+        @children
+    }
+}
+
+export component SettingsView inherits Rectangle {
+    in property <bool> autostart;
+    in property <bool> start-minimized;
+    in property <bool> close-to-tray;
+    in property <string> app-version;
+    // key is "autostart", "start-minimized" or "close-to-tray"
+    callback set-setting(string, bool);
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: 28px;
+        padding-top: Theme.spacing-lg;
+        spacing: Theme.spacing-lg;
+
+        PageHeader {
+            title: "Settings";
+            subtitle: "How RC Desktop starts and where it lives";
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.spacing-md;
+
+                Section {
+                    title: "Startup";
+                    icon: Icons.power;
+
+                    ToggleRow {
+                        title: "Start with Windows";
+                        description: "Open RC Desktop automatically when you sign in.";
+                        checked: root.autostart;
+                        toggled(on) => { root.set-setting("autostart", on); }
+                    }
+
+                    ToggleRow {
+                        title: "Start minimized in the tray";
+                        description: "When started with Windows, stay in the notification area instead of opening the window.";
+                        checked: root.start-minimized;
+                        enabled: root.autostart;
+                        last: true;
+                        toggled(on) => { root.set-setting("start-minimized", on); }
+                    }
+                }
+
+                Section {
+                    title: "Window";
+                    icon: Icons.home;
+
+                    ToggleRow {
+                        title: "Keep running in the tray when closed";
+                        description: "Closing the window hides it to the notification area. Use Quit in the tray icon's menu to exit.";
+                        checked: root.close-to-tray;
+                        last: true;
+                        toggled(on) => { root.set-setting("close-to-tray", on); }
+                    }
+                }
+
+                Section {
+                    title: "About";
+                    icon: Icons.info;
+
+                    HorizontalLayout {
+                        padding-top: 10px;
+                        padding-bottom: 14px;
+                        spacing: Theme.spacing-md;
+
+                        Image {
+                            width: 40px;
+                            height: 40px;
+                            source: @image-url("../../assets/rcdesktop.png");
+                        }
+
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: "RC Desktop " + root.app-version;
+                                font-size: Theme.font-body;
+                                font-weight: 600;
+                                color: Theme.text-main;
+                            }
+
+                            Text {
+                                text: "WSL containers manager  ·  MIT License  ·  Ricardo Borges";
+                                font-size: Theme.font-caption;
+                                color: Theme.text-dim;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -1,61 +1,119 @@
+use std::cell::RefCell;
+
+use slint::ComponentHandle;
 use tray_icon::{
-    menu::{Menu, MenuItem, PredefinedMenuItem},
-    Icon, TrayIcon, TrayIconBuilder,
+    menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem},
+    Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent,
 };
 
-pub struct TrayManager {
-    _tray_icon: TrayIcon,
+use crate::settings::autostart;
+use crate::MainWindow;
+
+const TOOLTIP: &str = "RC Desktop";
+
+thread_local! {
+    // The tray lives on the UI thread; kept here so status updates can reach it
+    static TRAY: RefCell<Option<TrayIcon>> = const { RefCell::new(None) };
+    static AUTOSTART_ITEM: RefCell<Option<CheckMenuItem>> = const { RefCell::new(None) };
 }
 
-impl TrayManager {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error>> {
-        let tray_menu = Menu::new();
+/// Tray icon with a menu to open the window, toggle start with Windows,
+/// restart WSL and quit. Must be created on the UI thread.
+pub fn install(window: &MainWindow) -> Result<(), Box<dyn std::error::Error>> {
+    let menu = Menu::new();
+    let open_item = MenuItem::new("Open RC Desktop", true, None);
+    let autostart_item = CheckMenuItem::new("Start with Windows", true, autostart::is_enabled(), None);
+    let restart_wsl_item = MenuItem::new("Restart WSL (wsl --shutdown)", true, None);
+    let quit_item = MenuItem::new("Quit", true, None);
 
-        let open_item = MenuItem::new("Open RC Desktop", true, None);
-        let restart_wsl_item = MenuItem::new("Restart WSL (wsl --shutdown)", true, None);
-        let quit_item = MenuItem::new("Quit", true, None);
+    menu.append(&open_item)?;
+    menu.append(&PredefinedMenuItem::separator())?;
+    menu.append(&autostart_item)?;
+    menu.append(&restart_wsl_item)?;
+    menu.append(&PredefinedMenuItem::separator())?;
+    menu.append(&quit_item)?;
 
-        let _ = tray_menu.append(&open_item);
-        let _ = tray_menu.append(&PredefinedMenuItem::separator());
-        let _ = tray_menu.append(&restart_wsl_item);
-        let _ = tray_menu.append(&PredefinedMenuItem::separator());
-        let _ = tray_menu.append(&quit_item);
+    // The app icon embedded in the exe (assets/rcdesktop.rc); the drawn
+    // fallback covers builds without resources
+    let icon = Icon::from_resource(1, Some((32, 32))).or_else(|_| create_default_icon())?;
+    let tray = TrayIconBuilder::new()
+        .with_menu(Box::new(menu))
+        .with_menu_on_left_click(false)
+        .with_tooltip(TOOLTIP)
+        .with_icon(icon)
+        .build()?;
 
-        // The app icon embedded in the exe (assets/rcdesktop.rc); the drawn
-        // fallback covers builds without resources
-        let icon = Icon::from_resource(1, Some((32, 32))).or_else(|_| create_default_icon())?;
-
-        let tray_icon = TrayIconBuilder::new()
-            .with_menu(Box::new(tray_menu))
-            .with_tooltip("RC Desktop - WSLC Manager")
-            .with_icon(icon)
-            .build()?;
-
-        // Listen for menu events in background
-        let open_id = open_item.id().clone();
-        let restart_id = restart_wsl_item.id().clone();
-        let quit_id = quit_item.id().clone();
-
-        std::thread::spawn(move || {
-            let menu_channel = tray_icon::menu::MenuEvent::receiver();
-            while let Ok(event) = menu_channel.recv() {
-                if event.id == open_id {
-                    // Open / show window if minimized
-                    println!("[RC Desktop Tray] Open clicked");
-                } else if event.id == restart_id {
-                    println!("[RC Desktop Tray] Restart WSL clicked");
-                    let _ = std::process::Command::new("wsl")
-                        .arg("--shutdown")
-                        .spawn();
-                } else if event.id == quit_id {
-                    println!("[RC Desktop Tray] Quit clicked");
-                    std::process::exit(0);
+    let (open_id, autostart_id, restart_id, quit_id) =
+        (open_item.id().clone(), autostart_item.id().clone(), restart_wsl_item.id().clone(), quit_item.id().clone());
+    let weak = window.as_weak();
+    MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+        if event.id == open_id {
+            show_window(&weak);
+        } else if event.id == autostart_id {
+            let _ = weak.upgrade_in_event_loop(|w| {
+                let enable = !autostart::is_enabled();
+                match autostart::set_enabled(enable) {
+                    Ok(()) => w.set_setting_autostart(enable),
+                    Err(e) => {
+                        w.set_details_modal_title("Start with Windows".into());
+                        w.set_details_modal_content(e.into());
+                        w.set_details_modal_open(true);
+                    }
                 }
-            }
-        });
+                sync_autostart_item();
+            });
+        } else if event.id == restart_id {
+            let _ = std::process::Command::new("wsl").arg("--shutdown").spawn();
+        } else if event.id == quit_id {
+            let _ = slint::invoke_from_event_loop(|| {
+                let _ = slint::quit_event_loop();
+            });
+        }
+    }));
 
-        Ok(Self { _tray_icon: tray_icon })
-    }
+    // Left click (or double click) on the icon brings the window back
+    let weak = window.as_weak();
+    TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| match event {
+        TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. }
+        | TrayIconEvent::DoubleClick { button: MouseButton::Left, .. } => show_window(&weak),
+        _ => {}
+    }));
+
+    TRAY.with(|t| *t.borrow_mut() = Some(tray));
+    AUTOSTART_ITEM.with(|i| *i.borrow_mut() = Some(autostart_item));
+    Ok(())
+}
+
+/// Whether the tray icon is up (the window may only hide to the tray then).
+pub fn is_installed() -> bool {
+    TRAY.with(|t| t.borrow().is_some())
+}
+
+/// Shows and restores the main window. Callable from any thread.
+pub fn show_window(weak: &slint::Weak<MainWindow>) {
+    let _ = weak.upgrade_in_event_loop(|w| {
+        let _ = w.show();
+        w.window().set_minimized(false);
+    });
+}
+
+/// Updates the tooltip with container counts. UI thread only.
+pub fn set_status(running: i32, total: i32) {
+    let text = format!("{}\n{} of {} containers running", TOOLTIP, running, total);
+    TRAY.with(|t| {
+        if let Some(tray) = t.borrow().as_ref() {
+            let _ = tray.set_tooltip(Some(text));
+        }
+    });
+}
+
+/// Mirrors the Run entry in the tray menu's check mark. UI thread only.
+pub fn sync_autostart_item() {
+    AUTOSTART_ITEM.with(|i| {
+        if let Some(item) = i.borrow().as_ref() {
+            item.set_checked(autostart::is_enabled());
+        }
+    });
 }
 
 fn create_default_icon() -> Result<Icon, Box<dyn std::error::Error>> {

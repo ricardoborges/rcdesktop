@@ -9,6 +9,7 @@ use crate::domain::container::ContainerState;
 use crate::domain::compose::{load_env, parse_compose, ComposeProject};
 use crate::domain::deploy::{parse_lines, parse_run_command, quote_args, ContainerSpec};
 use crate::rcompose;
+use crate::{settings, tray};
 use crate::wslc::client::WslcClient;
 use crate::wslc::stack::{deploy_project as deploy_stack, remove_project};
 
@@ -601,6 +602,37 @@ impl AppController {
             });
         }
 
+        // 11e. User settings
+        window.set_app_version(env!("CARGO_PKG_VERSION").into());
+        {
+            let s = settings::get();
+            window.set_setting_autostart(settings::autostart::is_enabled());
+            window.set_setting_start_minimized(s.start_minimized);
+            window.set_setting_close_to_tray(s.close_to_tray);
+        }
+        {
+            let weak_window = weak_window.clone();
+            window.on_set_setting(move |key, on| {
+                let Some(w) = weak_window.upgrade() else { return };
+                let result = match key.as_str() {
+                    "autostart" => settings::autostart::set_enabled(on).map(|()| {
+                        w.set_setting_autostart(on);
+                        tray::sync_autostart_item();
+                    }),
+                    "start-minimized" => settings::update(|s| s.start_minimized = on)
+                        .map(|s| w.set_setting_start_minimized(s.start_minimized)),
+                    "close-to-tray" => settings::update(|s| s.close_to_tray = on)
+                        .map(|s| w.set_setting_close_to_tray(s.close_to_tray)),
+                    _ => Ok(()),
+                };
+                if let Err(e) = result {
+                    w.set_details_modal_title("Saving settings failed".into());
+                    w.set_details_modal_content(e.into());
+                    w.set_details_modal_open(true);
+                }
+            });
+        }
+
         // 12. Restart WSL Callback
         {
             let client = client.clone();
@@ -723,6 +755,7 @@ impl AppController {
                 w.set_standalone_containers(ModelRc::new(VecModel::from(standalone)));
                 w.set_running_containers_count(running_count);
                 w.set_total_containers_count(total_count);
+                tray::set_status(running_count, total_count);
             }
 
         });

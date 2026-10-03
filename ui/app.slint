@@ -7,6 +7,7 @@ import { ImagesView } from "views/images.slint";
 import { VolumesView } from "views/volumes.slint";
 import { NetworksView } from "views/networks.slint";
 import { WslcView } from "views/wslc.slint";
+import { SettingsView } from "views/settings.slint";
 import { DiagnosticsView } from "views/diagnostics.slint";
 import { DetailsModal } from "views/details.slint";
 import { DeployView } from "views/deploy.slint";
@@ -64,6 +65,11 @@ export component MainWindow inherits Window {
     in-out property <string> confirm-remove-stack: "";
     // True until the first data load finishes
     in-out property <bool> loading: true;
+    // User settings (Settings page and tray menu)
+    in-out property <bool> setting-autostart: false;
+    in-out property <bool> setting-start-minimized: true;
+    in-out property <bool> setting-close-to-tray: true;
+    in-out property <string> app-version: "";
     // rcompose.exe used to deploy stacks; empty when it isn't installed
     in-out property <string> rcompose-path: "";
     in-out property <bool> rcompose-installing: false;
@@ -121,6 +127,7 @@ export component MainWindow inherits Window {
     callback prune(string);
     callback refresh-wslc-info();
     callback open-wslc-settings();
+    callback set-setting(string, bool);
 
     callback refresh-all();
     callback restart-wsl();
@@ -230,6 +237,14 @@ export component MainWindow inherits Window {
                     open-settings => { root.open-wslc-settings(); }
                     prune(key) => { root.confirm-prune = key; }
                     open-url(url) => { root.open-url(url); }
+                }
+
+                if root.active-tab == 8 : SettingsView {
+                    autostart: root.setting-autostart;
+                    start-minimized: root.setting-start-minimized;
+                    close-to-tray: root.setting-close-to-tray;
+                    app-version: root.app-version;
+                    set-setting(key, on) => { root.set-setting(key, on); }
                 }
 
                 if root.active-tab == 3 : VolumesView {

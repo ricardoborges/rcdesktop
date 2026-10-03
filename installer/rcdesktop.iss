@@ -49,8 +49,9 @@ OutputDir=..\dist
 OutputBaseFilename=rcdesktop-setup
 UninstallDisplayIcon={app}\{#AppExe}
 UninstallDisplayName={#AppName}
-; Closes a running RC Desktop (it lives in the tray) before replacing files
-CloseApplications=yes
+; A running RC Desktop hides to the tray instead of closing, so the Restart
+; Manager can't shut it down; it's ended in PrepareToInstall instead
+CloseApplications=no
 ChangesEnvironment=yes
 Compression=lzma2/max
 SolidCompression=yes
@@ -63,9 +64,12 @@ Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortugue
 [CustomMessages]
 english.AddToPath=Add rcompose to PATH (use it from the terminal)
 brazilianportuguese.AddToPath=Adicionar o rcompose ao PATH (usar pelo terminal)
+english.Autostart=Start RC Desktop with Windows (in the notification area)
+brazilianportuguese.Autostart=Iniciar o RC Desktop com o Windows (na área de notificação)
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
+Name: "autostart"; Description: "{cm:Autostart}"; Flags: unchecked
 Name: "addtopath"; Description: "{cm:AddToPath}"
 
 [Files]
@@ -87,6 +91,9 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopico
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; \
     ValueData: "{olddata};{app}"; Tasks: addtopath; Check: NeedsAddPath(ExpandConstant('{app}'))
+; Same entry the app's Settings page writes (src/settings.rs), so both stay in sync
+Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; \
+    ValueName: "{#AppName}"; ValueData: """{app}\{#AppExe}"" --autostart"; Tasks: autostart
 
 [Run]
 Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags: nowait postinstall skipifsilent
@@ -106,12 +113,39 @@ begin
   Result := not PathContains(Paths, Dir);
 end;
 
-// Takes the install folder back out of the user PATH on uninstall
+// Ends a running RC Desktop (it may be hidden in the tray) so its files can
+// be replaced or removed
+procedure StopRunningApp();
+var
+  ResultCode: Integer;
+begin
+  Exec(ExpandConstant('{sys}\taskkill.exe'), '/F /IM {#AppExe}', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  // Give Windows a moment to release the executable
+  Sleep(500);
+end;
+
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopRunningApp();
+  Result := '';
+end;
+
+function InitializeUninstall(): Boolean;
+begin
+  StopRunningApp();
+  Result := True;
+end;
+
+// On uninstall: removes the start-with-Windows entry (whether the installer
+// or the app's Settings page created it) and takes the install folder back
+// out of the user PATH
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 var
   Paths, Dir: string;
   P: Integer;
 begin
+  if CurUninstallStep = usUninstall then
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#AppName}');
   if CurUninstallStep <> usPostUninstall then
     exit;
   if not RegQueryStringValue(HKCU, 'Environment', 'Path', Paths) then

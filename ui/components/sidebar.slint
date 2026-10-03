@@ -180,7 +180,7 @@ export component Sidebar inherits Rectangle {
 
         NavItem {
             text: "WSLC";
-            icon: Icons.settings;
+            icon: Icons.system;
             active: root.active-tab == 7;
             clicked => { root.tab-selected(7); }
         }
@@ -190,6 +190,13 @@ export component Sidebar inherits Rectangle {
             icon: Icons.diagnostic;
             active: root.active-tab == 4;
             clicked => { root.tab-selected(4); }
+        }
+
+        NavItem {
+            text: "Settings";
+            icon: Icons.settings;
+            active: root.active-tab == 8;
+            clicked => { root.tab-selected(8); }
         }
     }
 }
