@@ -111,20 +111,10 @@ export component Sidebar inherits Rectangle {
             VerticalLayout {
                 alignment: center;
 
-                Rectangle {
+                Image {
                     width: 32px;
                     height: 32px;
-                    border-radius: Theme.radius-md;
-                    background: @linear-gradient(135deg, #60cdff 0%, #2f7fd8 100%);
-
-                    Text {
-                        text: "RC";
-                        font-size: 13px;
-                        font-weight: 700;
-                        color: #ffffff;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                    }
+                    source: @image-url("../../assets/rcdesktop.png");
                 }
             }
 

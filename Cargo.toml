@@ -32,3 +32,4 @@ windows-sys = { version = "0.59", features = [
 
 [build-dependencies]
 slint-build = "1.9"
+embed-resource = "3.0"

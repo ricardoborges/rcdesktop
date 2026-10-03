@@ -1,0 +1,3 @@
+// Windows resources embedded by build.rs
+// ID 1 is the application icon (Explorer, taskbar) and the tray icon
+1 ICON "rcdesktop.ico"

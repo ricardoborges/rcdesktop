@@ -44,6 +44,7 @@ ArchitecturesInstallIn64BitMode=x64compatible
 #endif
 MinVersion=10.0.22000
 LicenseFile=..\LICENSE
+SetupIconFile=..\assets\rcdesktop.ico
 OutputDir=..\dist
 OutputBaseFilename=rcdesktop-setup
 UninstallDisplayIcon={app}\{#AppExe}

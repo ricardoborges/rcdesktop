@@ -21,7 +21,9 @@ impl TrayManager {
         let _ = tray_menu.append(&PredefinedMenuItem::separator());
         let _ = tray_menu.append(&quit_item);
 
-        let icon = create_default_icon()?;
+        // The app icon embedded in the exe (assets/rcdesktop.rc); the drawn
+        // fallback covers builds without resources
+        let icon = Icon::from_resource(1, Some((32, 32))).or_else(|_| create_default_icon())?;
 
         let tray_icon = TrayIconBuilder::new()
             .with_menu(Box::new(tray_menu))
