@@ -175,6 +175,8 @@ impl WslcClient for RealWslcClient {
         if all {
             args.push("-a".to_string());
         }
+        // JSON carries the labels needed to group compose stacks
+        args.extend(["--format".to_string(), "json".to_string()]);
         let output = self.queue.execute(args, Duration::from_secs(45)).await?;
         Ok(parse_containers(&output))
     }

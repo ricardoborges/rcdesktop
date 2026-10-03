@@ -83,3 +83,17 @@ local     nginx_cache\n";
     assert_eq!(vols[0].name, "pgdata_volume");
     assert_eq!(vols[1].name, "nginx_cache");
 }
+
+#[test]
+fn test_parse_containers_json_lines() {
+    let raw = r#"{"ID":"5e87b3799438","Image":"delphos-frontend","Labels":"com.docker.compose.project=delphos,com.docker.compose.service=frontend","Names":"delphos-frontend-1","Ports":"127.0.0.1:9090->80/tcp","State":"running","Status":"Up 2 minutes"}
+{"ID":"51e86e783886","Image":"delphos-backend","Labels":"com.docker.compose.project=delphos","Names":"delphos-backend-1","Ports":"","State":"exited","Status":"Exited (143)"}"#;
+    let list = rcdesktop::wslc::parser::parse_containers(raw);
+    assert_eq!(list.len(), 2);
+    assert_eq!(list[0].names, vec!["delphos-frontend-1".to_string()]);
+    assert_eq!(list[0].compose_project.as_deref(), Some("delphos"));
+    assert_eq!(list[0].ports.len(), 1);
+    assert_eq!(list[0].ports[0].host_port, 9090);
+    assert_eq!(list[1].compose_project.as_deref(), Some("delphos"));
+    assert!(list[1].ports.is_empty());
+}

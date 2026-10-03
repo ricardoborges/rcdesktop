@@ -37,21 +37,33 @@ pub fn parse_containers(raw: &str) -> Vec<Container> {
         }
     }
 
+    // JSON lines (`list --format json` prints one object per line)
+    if trimmed.starts_with('{') {
+        let items: Vec<Container> = trimmed
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l.trim()).ok())
+            .filter_map(|v| parse_container_json_item(&v))
+            .collect();
+        if !items.is_empty() {
+            return items;
+        }
+    }
+
     // Fallback: tabular parser
     parse_containers_tabular(trimmed)
 }
 
 fn parse_container_json_item(val: &Value) -> Option<Container> {
     let id = val.get("Id").or_else(|| val.get("ID"))?.as_str()?.to_string();
-    let names = val.get("Names")
-        .and_then(|n| n.as_array())
-        .map(|arr| arr.iter().filter_map(|s| s.as_str().map(String::from)).collect())
-        .unwrap_or_else(|| {
-            val.get("Name")
-                .and_then(|n| n.as_str())
-                .map(|s| vec![s.to_string()])
-                .unwrap_or_default()
-        });
+    let names = match val.get("Names") {
+        Some(Value::Array(arr)) => arr.iter().filter_map(|s| s.as_str().map(String::from)).collect(),
+        Some(Value::String(s)) => s.split(',').map(|n| n.trim().to_string()).filter(|n| !n.is_empty()).collect(),
+        _ => val
+            .get("Name")
+            .and_then(|n| n.as_str())
+            .map(|s| vec![s.to_string()])
+            .unwrap_or_default(),
+    };
 
     let image = val.get("Image").and_then(|i| i.as_str()).unwrap_or("").to_string();
     let command = val.get("Command").and_then(|c| c.as_str()).unwrap_or("").to_string();
@@ -74,6 +86,9 @@ fn parse_container_json_item(val: &Value) -> Option<Container> {
                 });
             }
         }
+    } else if let Some(ports_str) = val.get("Ports").and_then(|p| p.as_str()) {
+        // `list --format json` style: "127.0.0.1:9090->80/tcp, ..."
+        ports.extend(ports_str.split(',').filter_map(|p| PortMapping::parse(p.trim())));
     }
 
     Some(Container {
