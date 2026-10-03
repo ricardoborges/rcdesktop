@@ -1,0 +1,83 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish (e.g. v0.1.0)
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  # rcompose release bundled next to rcdesktop.exe
+  RCOMPOSE_VERSION: v0.1.0
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+          - target: aarch64-pc-windows-msvc
+            runner: windows-11-arm
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Test
+        run: cargo test --locked --target ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Fetch rcompose
+        shell: pwsh
+        run: |
+          $asset = "rcompose-${{ matrix.target }}.zip"
+          $base = "https://github.com/ricardoborges/rcompose/releases/download/$env:RCOMPOSE_VERSION"
+          Invoke-WebRequest "$base/$asset" -OutFile $asset
+          Invoke-WebRequest "$base/$asset.sha256" -OutFile "$asset.sha256"
+          $expected = ((Get-Content "$asset.sha256" -Raw).Trim() -split '\s+')[0].ToLower()
+          $actual = (Get-FileHash $asset -Algorithm SHA256).Hash.ToLower()
+          if ($expected -ne $actual) { throw "rcompose checksum mismatch" }
+          Expand-Archive $asset -DestinationPath rcompose
+          Copy-Item (Get-ChildItem rcompose -Filter rcompose.exe -Recurse | Select-Object -First 1).FullName rcompose.exe
+
+      - name: Package
+        shell: pwsh
+        run: |
+          $name = "rcdesktop-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path dist | Out-Null
+          Compress-Archive -Path "target/${{ matrix.target }}/release/rcdesktop.exe", rcompose.exe, README.md, LICENSE -DestinationPath "dist/$name.zip"
+          (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower() + "  $name.zip" | Out-File -Encoding ascii "dist/$name.zip.sha256"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rcdesktop-${{ matrix.target }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          generate_release_notes: true
+          files: dist/*
