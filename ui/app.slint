@@ -1,16 +1,142 @@
-import { Button } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+import { Sidebar } from "components/sidebar.slint";
+import { StatusBar } from "components/status_bar.slint";
+import { DashboardView } from "views/dashboard.slint";
+import { ContainersView } from "views/containers.slint";
+import { ImagesView } from "views/images.slint";
+import { VolumesView } from "views/volumes.slint";
+import { DiagnosticsView } from "views/diagnostics.slint";
+import { DetailsModal } from "views/details.slint";
+import { ContainerItem, ImageItem, VolumeItem, SessionInfoItem } from "models.slint";
+
+export { ContainerItem, ImageItem, VolumeItem, SessionInfoItem }
 
 export component MainWindow inherits Window {
     title: "RC Desktop - WSLC Manager";
-    min-width: 900px;
-    min-height: 600px;
-    preferred-width: 1024px;
-    preferred-height: 720px;
+    min-width: 960px;
+    min-height: 640px;
+    preferred-width: 1100px;
+    preferred-height: 740px;
+    background: Theme.background;
+    default-font-family: "Segoe UI Variable, Segoe UI, sans-serif";
 
-    Text {
-        text: "RC Desktop (WSLC)";
-        font-size: 24px;
-        horizontal-alignment: center;
-        vertical-alignment: center;
+    // Application state models exposed to Rust
+    in-out property <int> active-tab: 0;
+    in-out property <[ContainerItem]> containers-list: [];
+    in-out property <[ImageItem]> images-list: [];
+    in-out property <[VolumeItem]> volumes-list: [];
+    in-out property <SessionInfoItem> session-info: {
+        session_id: "default-wslc",
+        is_elevated: false,
+        is_healthy: true,
+        status_message: "Connected",
+        version: "5.0.1.1"
+    };
+
+    // Counters
+    in-out property <int> running-containers-count: 0;
+    in-out property <int> total-containers-count: 0;
+    in-out property <int> total-images-count: 0;
+    in-out property <int> total-volumes-count: 0;
+
+    // Modal state
+    in-out property <bool> details-modal-open: false;
+    in-out property <string> details-modal-title: "Details";
+    in-out property <string> details-modal-content: "";
+
+    // Callbacks to Rust backend
+    callback start-container(string);
+    callback stop-container(string);
+    callback restart-container(string);
+    callback remove-container(string);
+    callback view-logs(string);
+    callback inspect-container(string);
+    callback open-terminal(string);
+
+    callback pull-image(string);
+    callback remove-image(string);
+
+    callback refresh-all();
+    callback restart-wsl();
+    callback run-diagnostics();
+
+    VerticalLayout {
+        spacing: 0px;
+
+        // Main Body (Sidebar + Content view)
+        HorizontalLayout {
+            vertical-stretch: 1;
+
+            Sidebar {
+                active-tab: root.active-tab;
+                container-count: root.total-containers-count;
+                image-count: root.total-images-count;
+                volume-count: root.total-volumes-count;
+                tab-selected(idx) => { root.active-tab = idx; }
+            }
+
+            // Views Area
+            Rectangle {
+                horizontal-stretch: 1;
+                background: Theme.background;
+
+                if root.active-tab == 0 : DashboardView {
+                    session: root.session-info;
+                    running-containers: root.running-containers-count;
+                    total-containers: root.total-containers-count;
+                    total-images: root.total-images-count;
+                    total-volumes: root.total-volumes-count;
+                    restart-wsl => { root.restart-wsl(); }
+                    refresh-all => { root.refresh-all(); }
+                }
+
+                if root.active-tab == 1 : ContainersView {
+                    containers: root.containers-list;
+                    start-container(id) => { root.start-container(id); }
+                    stop-container(id) => { root.stop-container(id); }
+                    restart-container(id) => { root.restart-container(id); }
+                    remove-container(id) => { root.remove-container(id); }
+                    view-logs(id) => { root.view-logs(id); }
+                    inspect-container(id) => { root.inspect-container(id); }
+                    open-terminal(id) => { root.open-terminal(id); }
+                    refresh-containers => { root.refresh-all(); }
+                }
+
+                if root.active-tab == 2 : ImagesView {
+                    images: root.images-list;
+                    pull-image(img) => { root.pull-image(img); }
+                    remove-image(id) => { root.remove-image(id); }
+                    refresh-images => { root.refresh-all(); }
+                }
+
+                if root.active-tab == 3 : VolumesView {
+                    volumes: root.volumes-list;
+                    refresh-volumes => { root.refresh-all(); }
+                }
+
+                if root.active-tab == 4 : DiagnosticsView {
+                    session: root.session-info;
+                    run-diagnostics => { root.run-diagnostics(); }
+                    restart-wsl => { root.restart-wsl(); }
+                }
+            }
+        }
+
+        // Bottom Status Bar
+        StatusBar {
+            session-name: root.session-info.session_id;
+            version: root.session-info.version;
+            is-healthy: root.session-info.is_healthy;
+            is-elevated: root.session-info.is_elevated;
+            message: root.session-info.status_message;
+        }
+    }
+
+    // Modal Overlay
+    DetailsModal {
+        is-open: root.details-modal-open;
+        modal-title: root.details-modal-title;
+        content-text: root.details-modal-content;
+        close => { root.details-modal-open = false; }
     }
 }

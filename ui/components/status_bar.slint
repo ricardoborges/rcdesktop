@@ -1,0 +1,84 @@
+import { Theme } from "../theme.slint";
+
+export component StatusBar inherits Rectangle {
+    in property <string> session-name: "wslc-default";
+    in property <string> version: "5.0.1.1";
+    in property <bool> is-healthy: true;
+    in property <bool> is-elevated: false;
+    in property <string> message: "Connected";
+
+    height: 32px;
+    background: Theme.sidebar-background;
+
+    // Top border line
+    Rectangle {
+        y: 0px;
+        width: parent.width;
+        height: 1px;
+        background: Theme.border;
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.spacing-md;
+        padding-right: Theme.spacing-md;
+        spacing: Theme.spacing-md;
+
+        // Health indicator
+        HorizontalLayout {
+            spacing: Theme.spacing-xs;
+            alignment: start;
+            Rectangle {
+                width: 8px;
+                height: 8px;
+                border-radius: 4px;
+                background: root.is-healthy ? Theme.status-running : Theme.status-danger;
+                y: (parent.height - self.height) / 2;
+            }
+
+            Text {
+                text: "WSLC: " + root.message;
+                color: Theme.text-main;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+        }
+
+        // Session ID & Version
+        HorizontalLayout {
+            spacing: Theme.spacing-xs;
+            alignment: start;
+            Text {
+                text: "Session: " + root.session-name + " | v" + root.version;
+                color: Theme.text-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+        }
+
+        // Elevation warning banner (if elevated)
+        if root.is-elevated : HorizontalLayout {
+            spacing: Theme.spacing-xs;
+            alignment: start;
+            Rectangle {
+                background: Theme.status-starting-bg;
+                border-radius: Theme.radius-sm;
+                border-width: 1px;
+                border-color: Theme.status-starting;
+
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+                    Text {
+                        text: "⚠️ Running as Administrator";
+                        color: Theme.status-starting;
+                        font-size: 11px;
+                        font-weight: 600;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        Rectangle { /* spacer */ }
+    }
+}

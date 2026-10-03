@@ -1,0 +1,30 @@
+export struct ContainerItem {
+    id: string,
+    name: string,
+    image: string,
+    status: string,
+    state: string,
+    ports: string,
+}
+
+export struct ImageItem {
+    id: string,
+    repository: string,
+    tag: string,
+    size: string,
+    created: string,
+}
+
+export struct VolumeItem {
+    name: string,
+    driver: string,
+    scope: string,
+}
+
+export struct SessionInfoItem {
+    session_id: string,
+    is_elevated: bool,
+    is_healthy: bool,
+    status_message: string,
+    version: string,
+}

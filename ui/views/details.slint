@@ -1,0 +1,81 @@
+import { Theme } from "../theme.slint";
+import { ActionButton } from "../components/button.slint";
+
+export component DetailsModal inherits Rectangle {
+    in property <bool> is-open: false;
+    in property <string> modal-title: "Details";
+    in property <string> content-text: "";
+    callback close();
+
+    visible: root.is-open;
+    background: #000000aa;
+
+    // Click outside to close touch area
+    TouchArea {
+        clicked => { root.close(); }
+    }
+
+    // Modal Card
+    Rectangle {
+        width: 720px;
+        height: 520px;
+        background: Theme.card;
+        border-radius: Theme.radius-lg;
+        border-width: 1px;
+        border-color: Theme.border;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+
+        // Block clicks from propagating to outside
+        TouchArea {}
+
+        VerticalLayout {
+            padding: Theme.spacing-md;
+            spacing: Theme.spacing-md;
+
+            // Modal Header
+            HorizontalLayout {
+                alignment: space-between;
+
+                Text {
+                    text: root.modal-title;
+                    font-size: 16px;
+                    font-weight: 700;
+                    color: Theme.text-main;
+                    vertical-alignment: center;
+                }
+
+                ActionButton {
+                    text: "Close";
+                    icon: "✕";
+                    variant: "ghost";
+                    clicked => { root.close(); }
+                }
+            }
+
+            // Scrollable Content Box
+            Rectangle {
+                background: #111113;
+                border-radius: Theme.radius-sm;
+                border-width: 1px;
+                border-color: Theme.border-light;
+                vertical-stretch: 1;
+
+                Flickable {
+                    VerticalLayout {
+                        padding: Theme.spacing-md;
+
+                        TextInput {
+                            text: root.content-text;
+                            read-only: true;
+                            color: #e4e4e7;
+                            font-family: "Cascadia Mono, Consolas, monospace";
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

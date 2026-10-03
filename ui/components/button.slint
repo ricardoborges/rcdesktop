@@ -1,0 +1,57 @@
+import { Theme } from "../theme.slint";
+
+export component ActionButton inherits Rectangle {
+    in property <string> text: "Action";
+    in property <string> icon: "";
+    in property <string> variant: "secondary"; // primary, secondary, danger, ghost
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 32px;
+    border-radius: Theme.radius-sm;
+    background: !root.enabled ? Theme.surface-active :
+                touch.pressed ? (variant == "primary" ? Theme.primary-hover :
+                                 variant == "danger" ? Theme.status-danger-bg :
+                                 Theme.surface-active) :
+                touch.has-hover ? (variant == "primary" ? Theme.primary-hover :
+                                  variant == "danger" ? Theme.status-danger-bg :
+                                  Theme.surface-hover) :
+                (variant == "primary" ? Theme.primary :
+                 variant == "danger" ? Theme.status-danger-bg :
+                 variant == "ghost" ? #00000000 :
+                 Theme.surface);
+
+    border-width: variant == "ghost" ? 0px : 1px;
+    border-color: variant == "primary" ? Theme.primary :
+                  variant == "danger" ? Theme.status-danger :
+                  Theme.border;
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.spacing-sm;
+        padding-right: Theme.spacing-sm;
+        spacing: Theme.spacing-xs;
+        alignment: center;
+
+        if root.icon != "" : Text {
+            text: root.icon;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.text;
+            color: !root.enabled ? Theme.text-dim :
+                   variant == "primary" ? #09090b :
+                   variant == "danger" ? Theme.status-danger :
+                   Theme.text-main;
+            font-size: 12px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+}

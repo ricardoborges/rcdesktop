@@ -1,0 +1,178 @@
+import { Theme } from "../theme.slint";
+import { ActionButton } from "../components/button.slint";
+import { ImageItem } from "../models.slint";
+
+export component ImagesView inherits Rectangle {
+    in property <[ImageItem]> images;
+    callback pull-image(string);
+    callback remove-image(string);
+    callback refresh-images();
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: Theme.spacing-lg;
+        spacing: Theme.spacing-md;
+
+        // Header
+        HorizontalLayout {
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: Theme.spacing-xs;
+                Text {
+                    text: "Images";
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: Theme.text-main;
+                }
+                Text {
+                    text: "Local OCI container images in WSLC";
+                    font-size: 13px;
+                    color: Theme.text-muted;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing-sm;
+                ActionButton {
+                    text: "Refresh";
+                    icon: "🔄";
+                    clicked => { root.refresh-images(); }
+                }
+            }
+        }
+
+        // Pull Bar
+        Rectangle {
+            background: Theme.card;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.border-light;
+            height: 52px;
+
+            HorizontalLayout {
+                padding-left: Theme.spacing-md;
+                padding-right: Theme.spacing-md;
+                spacing: Theme.spacing-sm;
+                alignment: center;
+
+                Text {
+                    text: "Pull Image:";
+                    font-size: 13px;
+                    font-weight: 600;
+                    color: Theme.text-main;
+                    vertical-alignment: center;
+                }
+
+                pull-input := TextInput {
+                    text: "nginx:alpine";
+                    color: Theme.text-main;
+                    font-size: 13px;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+
+                ActionButton {
+                    text: "Pull";
+                    icon: "⬇️";
+                    variant: "primary";
+                    clicked => {
+                        if pull-input.text != "" {
+                            root.pull-image(pull-input.text);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Images List
+        if root.images.length == 0 : Rectangle {
+            background: Theme.card;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.border-light;
+            height: 200px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Theme.spacing-sm;
+                Text {
+                    text: "🖼️ No images available";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Use the pull field above to fetch container images.";
+                    font-size: 12px;
+                    color: Theme.text-dim;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                spacing: Theme.spacing-sm;
+
+                for img in root.images : Rectangle {
+                    background: Theme.card;
+                    border-radius: Theme.radius-md;
+                    border-width: 1px;
+                    border-color: Theme.border-light;
+                    height: 58px;
+
+                    HorizontalLayout {
+                        padding-left: Theme.spacing-md;
+                        padding-right: Theme.spacing-md;
+                        spacing: Theme.spacing-md;
+                        alignment: center;
+
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: Theme.radius-sm;
+                            background: Theme.surface;
+
+                            Text {
+                                text: "🖼️";
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: img.repository + ":" + img.tag;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Theme.text-main;
+                            }
+                            Text {
+                                text: "ID: " + img.id + " • Size: " + img.size;
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+
+                        ActionButton {
+                            text: "Delete";
+                            icon: "🗑️";
+                            variant: "danger";
+                            clicked => { root.remove-image(img.id); }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

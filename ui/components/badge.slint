@@ -1,0 +1,49 @@
+import { Theme } from "../theme.slint";
+
+export component StatusBadge inherits Rectangle {
+    in property <string> text: "Running";
+    in property <string> state: "Running"; // Running, Exited, Created, Warning
+
+    height: 24px;
+    border-radius: Theme.radius-sm;
+    background: state == "Running" ? Theme.status-running-bg :
+                state == "Starting" ? Theme.status-starting-bg :
+                state == "Warning" ? Theme.status-starting-bg :
+                state == "Danger" ? Theme.status-danger-bg :
+                Theme.status-exited-bg;
+
+    border-width: 1px;
+    border-color: state == "Running" ? Theme.status-running :
+                  state == "Starting" ? Theme.status-starting :
+                  state == "Warning" ? Theme.status-starting :
+                  state == "Danger" ? Theme.status-danger :
+                  Theme.status-exited;
+
+    HorizontalLayout {
+        padding-left: Theme.spacing-sm;
+        padding-right: Theme.spacing-sm;
+        spacing: Theme.spacing-xs;
+        alignment: center;
+
+        // Status indicator dot
+        Rectangle {
+            width: 6px;
+            height: 6px;
+            border-radius: 3px;
+            background: state == "Running" ? Theme.status-running :
+                        state == "Starting" ? Theme.status-starting :
+                        state == "Warning" ? Theme.status-starting :
+                        state == "Danger" ? Theme.status-danger :
+                        Theme.status-exited;
+            y: (parent.height - self.height) / 2;
+        }
+
+        Text {
+            text: root.text;
+            color: Theme.text-main;
+            font-size: 11px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+}

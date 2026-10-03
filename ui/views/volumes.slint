@@ -1,0 +1,125 @@
+import { Theme } from "../theme.slint";
+import { ActionButton } from "../components/button.slint";
+import { VolumeItem } from "../models.slint";
+
+export component VolumesView inherits Rectangle {
+    in property <[VolumeItem]> volumes;
+    callback refresh-volumes();
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: Theme.spacing-lg;
+        spacing: Theme.spacing-md;
+
+        // Header
+        HorizontalLayout {
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: Theme.spacing-xs;
+                Text {
+                    text: "Volumes";
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: Theme.text-main;
+                }
+                Text {
+                    text: "Persistent storage volumes configured in WSLC";
+                    font-size: 13px;
+                    color: Theme.text-muted;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing-sm;
+                ActionButton {
+                    text: "Refresh";
+                    icon: "🔄";
+                    clicked => { root.refresh-volumes(); }
+                }
+            }
+        }
+
+        if root.volumes.length == 0 : Rectangle {
+            background: Theme.card;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.border-light;
+            height: 180px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Theme.spacing-sm;
+                Text {
+                    text: "💾 No volumes detected";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Volumes created by containers will appear here.";
+                    font-size: 12px;
+                    color: Theme.text-dim;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                spacing: Theme.spacing-sm;
+
+                for vol in root.volumes : Rectangle {
+                    background: Theme.card;
+                    border-radius: Theme.radius-md;
+                    border-width: 1px;
+                    border-color: Theme.border-light;
+                    height: 54px;
+
+                    HorizontalLayout {
+                        padding-left: Theme.spacing-md;
+                        padding-right: Theme.spacing-md;
+                        spacing: Theme.spacing-md;
+                        alignment: center;
+
+                        Rectangle {
+                            width: 32px;
+                            height: 32px;
+                            border-radius: Theme.radius-sm;
+                            background: Theme.surface;
+
+                            Text {
+                                text: "💾";
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: vol.name;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Theme.text-main;
+                            }
+                            Text {
+                                text: "Driver: " + vol.driver + " • Scope: " + vol.scope;
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

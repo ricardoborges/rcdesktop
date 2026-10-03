@@ -1,0 +1,159 @@
+import { Theme } from "../theme.slint";
+
+export component NavItem inherits Rectangle {
+    in property <string> text: "Item";
+    in property <string> icon: "📦";
+    in property <bool> active: false;
+    in property <int> badge-count: -1;
+    callback clicked();
+
+    height: 38px;
+    border-radius: Theme.radius-sm;
+    background: root.active ? Theme.surface-active :
+                touch.has-hover ? Theme.surface-hover :
+                #00000000;
+
+    touch := TouchArea {
+        clicked => { root.clicked(); }
+    }
+
+    HorizontalLayout {
+        padding-left: Theme.spacing-md;
+        padding-right: Theme.spacing-md;
+        spacing: Theme.spacing-sm;
+
+        Text {
+            text: root.icon;
+            font-size: 15px;
+            vertical-alignment: center;
+        }
+
+        Text {
+            text: root.text;
+            color: root.active ? Theme.text-main : Theme.text-muted;
+            font-size: 13px;
+            font-weight: root.active ? 600 : 400;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+        }
+
+        if root.badge-count >= 0 : Rectangle {
+            width: 20px;
+            height: 18px;
+            border-radius: 9px;
+            background: root.active ? Theme.primary : Theme.surface;
+            y: (parent.height - self.height) / 2;
+
+            Text {
+                text: root.badge-count;
+                color: root.active ? #09090b : Theme.text-muted;
+                font-size: 10px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <int> active-tab: 0;
+    in property <int> container-count: 0;
+    in property <int> image-count: 0;
+    in property <int> volume-count: 0;
+    callback tab-selected(int);
+
+    width: 220px;
+    background: Theme.sidebar-background;
+
+    // Right border line
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        height: parent.height;
+        background: Theme.border;
+    }
+
+    VerticalLayout {
+        padding: Theme.spacing-md;
+        spacing: Theme.spacing-sm;
+
+        // App Logo / Title
+        HorizontalLayout {
+            spacing: Theme.spacing-sm;
+            padding-bottom: Theme.spacing-md;
+
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.radius-sm;
+                background: Theme.primary;
+
+                Text {
+                    text: "RC";
+                    font-size: 13px;
+                    font-weight: 700;
+                    color: #09090b;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            VerticalLayout {
+                alignment: center;
+                Text {
+                    text: "RC Desktop";
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: Theme.text-main;
+                }
+                Text {
+                    text: "WSLC Manager";
+                    font-size: 10px;
+                    color: Theme.text-dim;
+                }
+            }
+        }
+
+        // Navigation Items
+        NavItem {
+            text: "Dashboard";
+            icon: "📊";
+            active: root.active-tab == 0;
+            clicked => { root.tab-selected(0); }
+        }
+
+        NavItem {
+            text: "Containers";
+            icon: "📦";
+            active: root.active-tab == 1;
+            badge-count: root.container-count;
+            clicked => { root.tab-selected(1); }
+        }
+
+        NavItem {
+            text: "Images";
+            icon: "🖼️";
+            active: root.active-tab == 2;
+            badge-count: root.image-count;
+            clicked => { root.tab-selected(2); }
+        }
+
+        NavItem {
+            text: "Volumes";
+            icon: "💾";
+            active: root.active-tab == 3;
+            badge-count: root.volume-count;
+            clicked => { root.tab-selected(3); }
+        }
+
+        NavItem {
+            text: "Diagnostics";
+            icon: "⚙️";
+            active: root.active-tab == 4;
+            clicked => { root.tab-selected(4); }
+        }
+
+        Rectangle { /* vertical spacer */ }
+    }
+}

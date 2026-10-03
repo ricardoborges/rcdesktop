@@ -1,0 +1,195 @@
+import { Theme } from "../theme.slint";
+import { ActionButton } from "../components/button.slint";
+import { StatusBadge } from "../components/badge.slint";
+import { ContainerItem } from "../models.slint";
+
+export component ContainersView inherits Rectangle {
+    in property <[ContainerItem]> containers;
+    callback start-container(string);
+    callback stop-container(string);
+    callback restart-container(string);
+    callback remove-container(string);
+    callback view-logs(string);
+    callback inspect-container(string);
+    callback open-terminal(string);
+    callback refresh-containers();
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: Theme.spacing-lg;
+        spacing: Theme.spacing-md;
+
+        // Header & Actions
+        HorizontalLayout {
+            alignment: space-between;
+
+            VerticalLayout {
+                spacing: Theme.spacing-xs;
+                Text {
+                    text: "Containers";
+                    font-size: 20px;
+                    font-weight: 700;
+                    color: Theme.text-main;
+                }
+                Text {
+                    text: "Manage running and stopped WSL containers";
+                    font-size: 13px;
+                    color: Theme.text-muted;
+                }
+            }
+
+            HorizontalLayout {
+                spacing: Theme.spacing-sm;
+                ActionButton {
+                    text: "Refresh";
+                    icon: "🔄";
+                    clicked => { root.refresh-containers(); }
+                }
+            }
+        }
+
+        // Containers List View
+        if root.containers.length == 0 : Rectangle {
+            background: Theme.card;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.border-light;
+            height: 200px;
+
+            VerticalLayout {
+                alignment: center;
+                spacing: Theme.spacing-sm;
+                Text {
+                    text: "📦 No containers found";
+                    font-size: 16px;
+                    font-weight: 600;
+                    color: Theme.text-muted;
+                    horizontal-alignment: center;
+                }
+                Text {
+                    text: "Pull and run an image to get started with WSLC.";
+                    font-size: 12px;
+                    color: Theme.text-dim;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // Container rows
+        Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                spacing: Theme.spacing-sm;
+
+                for c in root.containers : Rectangle {
+                    background: Theme.card;
+                    border-radius: Theme.radius-md;
+                    border-width: 1px;
+                    border-color: Theme.border-light;
+                    height: 64px;
+
+                    HorizontalLayout {
+                        padding-left: Theme.spacing-md;
+                        padding-right: Theme.spacing-md;
+                        spacing: Theme.spacing-md;
+                        alignment: center;
+
+                        // Status Badge
+                        StatusBadge {
+                            text: c.status;
+                            state: c.state;
+                        }
+
+                        // Name & Image
+                        VerticalLayout {
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 2px;
+
+                            Text {
+                                text: c.name;
+                                font-size: 14px;
+                                font-weight: 600;
+                                color: Theme.text-main;
+                            }
+                            Text {
+                                text: c.image + " (" + c.id + ")";
+                                font-size: 11px;
+                                color: Theme.text-muted;
+                            }
+                        }
+
+                        // Ports
+                        if c.ports != "" : HorizontalLayout {
+                            alignment: center;
+                            padding-right: Theme.spacing-md;
+                            Text {
+                                text: "🌐 " + c.ports;
+                                font-size: 12px;
+                                color: Theme.primary;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        // Container Action Buttons
+                        HorizontalLayout {
+                            spacing: Theme.spacing-xs;
+                            alignment: center;
+
+                            if c.state != "Running" : ActionButton {
+                                text: "Start";
+                                icon: "▶";
+                                variant: "primary";
+                                clicked => { root.start-container(c.id); }
+                            }
+
+                            if c.state == "Running" : ActionButton {
+                                text: "Stop";
+                                icon: "⏹";
+                                variant: "secondary";
+                                clicked => { root.stop-container(c.id); }
+                            }
+
+                            ActionButton {
+                                text: "Restart";
+                                icon: "🔄";
+                                variant: "secondary";
+                                clicked => { root.restart-container(c.id); }
+                            }
+
+                            ActionButton {
+                                text: "Terminal";
+                                icon: "💻";
+                                variant: "secondary";
+                                clicked => { root.open-terminal(c.id); }
+                            }
+
+                            ActionButton {
+                                text: "Logs";
+                                icon: "📄";
+                                variant: "ghost";
+                                clicked => { root.view-logs(c.id); }
+                            }
+
+                            ActionButton {
+                                text: "Inspect";
+                                icon: "🔍";
+                                variant: "ghost";
+                                clicked => { root.inspect-container(c.id); }
+                            }
+
+                            ActionButton {
+                                text: "Delete";
+                                icon: "🗑️";
+                                variant: "danger";
+                                clicked => { root.remove-container(c.id); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

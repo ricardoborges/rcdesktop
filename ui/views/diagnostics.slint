@@ -1,0 +1,89 @@
+import { Theme } from "../theme.slint";
+import { ActionButton } from "../components/button.slint";
+import { SessionInfoItem } from "../models.slint";
+
+export component DiagnosticsView inherits Rectangle {
+    in property <SessionInfoItem> session;
+    callback run-diagnostics();
+    callback restart-wsl();
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: Theme.spacing-lg;
+        spacing: Theme.spacing-md;
+
+        // Header
+        VerticalLayout {
+            spacing: Theme.spacing-xs;
+            Text {
+                text: "WSLC Diagnostics & Recovery";
+                font-size: 20px;
+                font-weight: 700;
+                color: Theme.text-main;
+            }
+            Text {
+                text: "Session health, lock resolution, and troubleshooting tools";
+                font-size: 13px;
+                color: Theme.text-muted;
+            }
+        }
+
+        // Actions Bar
+        HorizontalLayout {
+            spacing: Theme.spacing-sm;
+
+            ActionButton {
+                text: "Run Diagnostics";
+                icon: "🩺";
+                variant: "primary";
+                clicked => { root.run-diagnostics(); }
+            }
+
+            ActionButton {
+                text: "Reset WSL (wsl --shutdown)";
+                icon: "⚡";
+                variant: "danger";
+                clicked => { root.restart-wsl(); }
+            }
+        }
+
+        // Diagnostic Cards
+        Rectangle {
+            background: Theme.card;
+            border-radius: Theme.radius-md;
+            border-width: 1px;
+            border-color: Theme.border-light;
+
+            VerticalLayout {
+                padding: Theme.spacing-md;
+                spacing: Theme.spacing-sm;
+
+                Text {
+                    text: "Troubleshooting Guide";
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: Theme.text-main;
+                }
+
+                Text {
+                    text: "• If lists stay empty with ERROR_SHARING_VIOLATION (0x80070020), click 'Reset WSL' above to release file locks.";
+                    font-size: 12px;
+                    color: Theme.text-muted;
+                }
+                Text {
+                    text: "• Single-Lane Queue: RC Desktop automatically sequences all commands to prevent session store locks.";
+                    font-size: 12px;
+                    color: Theme.text-muted;
+                }
+                Text {
+                    text: "• Session Isolation: Run RC Desktop non-elevated unless your terminal is also elevated, as WSLC partitions sessions by elevation level.";
+                    font-size: 12px;
+                    color: Theme.text-muted;
+                }
+            }
+        }
+
+        Rectangle { /* vertical spacer */ }
+    }
+}
