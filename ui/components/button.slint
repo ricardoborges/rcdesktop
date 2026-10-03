@@ -1,4 +1,12 @@
 import { Theme } from "../theme.slint";
+import { Spinner } from "std-widgets.slint";
+
+export component Icon inherits Text {
+    font-family: Theme.icon-font;
+    font-size: 14px;
+    horizontal-alignment: center;
+    vertical-alignment: center;
+}
 
 export component ActionButton inherits Rectangle {
     in property <string> text: "Action";
@@ -7,50 +15,105 @@ export component ActionButton inherits Rectangle {
     in property <bool> enabled: true;
     callback clicked();
 
-    height: 32px;
-    border-radius: Theme.radius-sm;
-    background: !root.enabled ? Theme.surface-active :
-                touch.pressed ? (variant == "primary" ? Theme.primary-hover :
-                                 variant == "danger" ? Theme.status-danger-bg :
-                                 Theme.surface-active) :
-                touch.has-hover ? (variant == "primary" ? Theme.primary-hover :
-                                  variant == "danger" ? Theme.status-danger-bg :
-                                  Theme.surface-hover) :
-                (variant == "primary" ? Theme.primary :
-                 variant == "danger" ? Theme.status-danger-bg :
-                 variant == "ghost" ? #00000000 :
-                 Theme.surface);
+    property <color> fg: !root.enabled ? Theme.text-dim :
+                         variant == "primary" ? Theme.on-primary :
+                         variant == "danger" ? #ffffff :
+                         Theme.text-main;
 
-    border-width: variant == "ghost" ? 0px : 1px;
-    border-color: variant == "primary" ? Theme.primary :
-                  variant == "danger" ? Theme.status-danger :
-                  Theme.border;
+    height: Theme.control-height;
+    border-radius: Theme.radius-sm;
+    background: !root.enabled ? Theme.surface :
+                variant == "primary" ? (touch.pressed ? Theme.primary-pressed : touch.has-hover ? Theme.primary-hover : Theme.primary) :
+                variant == "danger" ? (touch.pressed ? #a52517 : touch.has-hover ? #d13a2b : Theme.danger-solid) :
+                variant == "ghost" ? (touch.pressed ? Theme.surface-active : touch.has-hover ? Theme.surface-hover : transparent) :
+                (touch.pressed ? Theme.surface-active : touch.has-hover ? Theme.surface-hover : Theme.surface);
+    border-width: variant == "secondary" ? 1px : 0px;
+    border-color: Theme.border;
 
     touch := TouchArea {
         enabled: root.enabled;
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
 
     HorizontalLayout {
-        padding-left: Theme.spacing-sm;
-        padding-right: Theme.spacing-sm;
-        spacing: Theme.spacing-xs;
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: Theme.spacing-sm;
         alignment: center;
 
-        if root.icon != "" : Text {
+        if root.icon != "" : Icon {
             text: root.icon;
             font-size: 13px;
-            vertical-alignment: center;
+            color: root.fg;
         }
 
         Text {
             text: root.text;
-            color: !root.enabled ? Theme.text-dim :
-                   variant == "primary" ? #09090b :
-                   variant == "danger" ? Theme.status-danger :
-                   Theme.text-main;
-            font-size: 12px;
+            color: root.fg;
+            font-size: Theme.font-body;
             font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+}
+
+// Compact square icon button with a hover tooltip. The tooltip sits to the
+// left so it draws over earlier siblings and is never clipped by list tops.
+// `accent` tints the glyph and hover fill; `busy` swaps the glyph for a spinner.
+export component IconButton inherits Rectangle {
+    in property <string> icon;
+    in property <string> tooltip;
+    in property <color> accent: Theme.text-muted;
+    in property <bool> enabled: true;
+    in property <bool> busy: false;
+    callback clicked();
+
+    property <bool> interactive: root.enabled && !root.busy;
+
+    width: Theme.control-height;
+    height: Theme.control-height;
+    border-radius: Theme.radius-sm;
+    background: root.busy ? root.accent.with-alpha(0.12) :
+                !root.interactive ? transparent :
+                touch.pressed ? root.accent.with-alpha(0.28) :
+                touch.has-hover ? root.accent.with-alpha(0.16) :
+                transparent;
+
+    touch := TouchArea {
+        enabled: root.interactive;
+        mouse-cursor: root.interactive ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+
+    if !root.busy : Icon {
+        text: root.icon;
+        color: root.interactive ? root.accent : root.accent.with-alpha(0.3);
+    }
+
+    if root.busy : Spinner {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 16px;
+        height: 16px;
+        indeterminate: true;
+    }
+
+    if touch.has-hover && root.interactive && root.tooltip != "" : Rectangle {
+        width: tip-text.preferred-width + 16px;
+        height: 24px;
+        x: -self.width - 4px;
+        y: (parent.height - self.height) / 2;
+        background: #3a3a3a;
+        border-radius: Theme.radius-sm;
+        border-width: 1px;
+        border-color: #4a4a4a;
+
+        tip-text := Text {
+            text: root.tooltip;
+            color: Theme.text-main;
+            font-size: Theme.font-caption;
+            horizontal-alignment: center;
             vertical-alignment: center;
         }
     }

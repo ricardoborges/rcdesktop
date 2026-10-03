@@ -1,56 +1,78 @@
-import { Theme } from "../theme.slint";
+import { Theme, Icons } from "../theme.slint";
+import { Icon } from "button.slint";
 
 export component NavItem inherits Rectangle {
     in property <string> text: "Item";
-    in property <string> icon: "📦";
+    in property <string> icon: "";
     in property <bool> active: false;
     in property <int> badge-count: -1;
     callback clicked();
 
-    height: 38px;
+    height: 40px;
     border-radius: Theme.radius-sm;
     background: root.active ? Theme.surface-active :
-                touch.has-hover ? Theme.surface-hover :
-                #00000000;
+                touch.has-hover ? #ffffff0a :
+                transparent;
 
     touch := TouchArea {
+        mouse-cursor: pointer;
         clicked => { root.clicked(); }
     }
 
-    HorizontalLayout {
-        padding-left: Theme.spacing-md;
-        padding-right: Theme.spacing-md;
-        spacing: Theme.spacing-sm;
+    // Windows 11 style active indicator pill
+    if root.active : Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 3px;
+        height: 16px;
+        border-radius: 1.5px;
+        background: Theme.primary;
+    }
 
-        Text {
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 10px;
+        spacing: 12px;
+
+        Icon {
+            width: 18px;
             text: root.icon;
-            font-size: 15px;
-            vertical-alignment: center;
+            font-size: 16px;
+            color: root.active ? Theme.primary : Theme.text-muted;
         }
 
         Text {
             text: root.text;
             color: root.active ? Theme.text-main : Theme.text-muted;
-            font-size: 13px;
+            font-size: Theme.font-body;
             font-weight: root.active ? 600 : 400;
             vertical-alignment: center;
             horizontal-stretch: 1;
+            overflow: elide;
         }
 
-        if root.badge-count >= 0 : Rectangle {
-            width: 20px;
-            height: 18px;
-            border-radius: 9px;
-            background: root.active ? Theme.primary : Theme.surface;
-            y: (parent.height - self.height) / 2;
+        if root.badge-count >= 0 : VerticalLayout {
+            alignment: center;
 
-            Text {
-                text: root.badge-count;
-                color: root.active ? #09090b : Theme.text-muted;
-                font-size: 10px;
-                font-weight: 600;
-                horizontal-alignment: center;
-                vertical-alignment: center;
+            Rectangle {
+                min-width: 22px;
+                height: 18px;
+                border-radius: 9px;
+                background: root.active ? Theme.primary : #ffffff14;
+
+                HorizontalLayout {
+                    padding-left: 6px;
+                    padding-right: 6px;
+
+                    Text {
+                        text: root.badge-count;
+                        color: root.active ? Theme.on-primary : Theme.text-muted;
+                        font-size: Theme.font-caption;
+                        font-weight: 600;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
             }
         }
     }
@@ -71,61 +93,69 @@ export component Sidebar inherits Rectangle {
         x: parent.width - 1px;
         width: 1px;
         height: parent.height;
-        background: Theme.border;
+        background: Theme.border-light;
     }
 
     VerticalLayout {
-        padding: Theme.spacing-md;
-        spacing: Theme.spacing-sm;
+        padding: 12px;
+        padding-top: 20px;
+        spacing: 4px;
 
-        // App Logo / Title
+        // App logo / title
         HorizontalLayout {
-            spacing: Theme.spacing-sm;
-            padding-bottom: Theme.spacing-md;
+            padding-left: 6px;
+            padding-bottom: 20px;
+            spacing: 12px;
 
-            Rectangle {
-                width: 28px;
-                height: 28px;
-                border-radius: Theme.radius-sm;
-                background: Theme.primary;
+            VerticalLayout {
+                alignment: center;
 
-                Text {
-                    text: "RC";
-                    font-size: 13px;
-                    font-weight: 700;
-                    color: #09090b;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
+                Rectangle {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: Theme.radius-md;
+                    background: @linear-gradient(135deg, #60cdff 0%, #2f7fd8 100%);
+
+                    Text {
+                        text: "RC";
+                        font-size: 13px;
+                        font-weight: 700;
+                        color: #ffffff;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
                 }
             }
 
             VerticalLayout {
                 alignment: center;
+                spacing: 0px;
+
                 Text {
                     text: "RC Desktop";
                     font-size: 15px;
-                    font-weight: 700;
+                    font-weight: 600;
                     color: Theme.text-main;
                 }
+
                 Text {
-                    text: "WSLC Manager";
-                    font-size: 10px;
+                    text: "WSL Containers";
+                    font-size: Theme.font-caption;
                     color: Theme.text-dim;
                 }
             }
         }
 
-        // Navigation Items
         NavItem {
             text: "Dashboard";
-            icon: "📊";
+            icon: Icons.home;
             active: root.active-tab == 0;
             clicked => { root.tab-selected(0); }
         }
 
         NavItem {
             text: "Containers";
-            icon: "📦";
+            icon: Icons.package;
             active: root.active-tab == 1;
             badge-count: root.container-count;
             clicked => { root.tab-selected(1); }
@@ -133,7 +163,7 @@ export component Sidebar inherits Rectangle {
 
         NavItem {
             text: "Images";
-            icon: "🖼️";
+            icon: Icons.layers;
             active: root.active-tab == 2;
             badge-count: root.image-count;
             clicked => { root.tab-selected(2); }
@@ -141,19 +171,19 @@ export component Sidebar inherits Rectangle {
 
         NavItem {
             text: "Volumes";
-            icon: "💾";
+            icon: Icons.drive;
             active: root.active-tab == 3;
             badge-count: root.volume-count;
             clicked => { root.tab-selected(3); }
         }
 
+        Rectangle { vertical-stretch: 1; }
+
         NavItem {
             text: "Diagnostics";
-            icon: "⚙️";
+            icon: Icons.diagnostic;
             active: root.active-tab == 4;
             clicked => { root.tab-selected(4); }
         }
-
-        Rectangle { /* vertical spacer */ }
     }
 }

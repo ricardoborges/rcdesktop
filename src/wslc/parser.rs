@@ -85,8 +85,23 @@ fn parse_container_json_item(val: &Value) -> Option<Container> {
         status,
         state,
         ports,
-        compose_project: None,
+        compose_project: parse_compose_project(val),
     })
+}
+
+// Compose project label; `Labels` is an object (inspect style) or a
+// "k=v,k=v" string (`ps --format json` style).
+fn parse_compose_project(val: &Value) -> Option<String> {
+    const KEY: &str = "com.docker.compose.project";
+    let project = match val.get("Labels")? {
+        Value::Object(map) => map.get(KEY)?.as_str()?.to_string(),
+        Value::String(s) => s
+            .split(',')
+            .find_map(|kv| kv.trim().strip_prefix(KEY)?.strip_prefix('='))?
+            .to_string(),
+        _ => return None,
+    };
+    (!project.is_empty()).then_some(project)
 }
 
 fn parse_containers_tabular(raw: &str) -> Vec<Container> {

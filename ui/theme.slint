@@ -1,40 +1,90 @@
 export global Theme {
-    // Windows 11 Dark Mode Palette
-    out property <color> background: #1c1c1f;
-    out property <color> sidebar-background: #18181b;
-    out property <color> surface: #27272a;
-    out property <color> surface-hover: #3f3f46;
-    out property <color> surface-active: #52525b;
-    out property <color> card: #202023;
-    out property <color> border: #3f3f46;
-    out property <color> border-light: #27272a;
+    // Windows 11 Dark (Mica-like) palette
+    out property <color> background: #202020;
+    out property <color> sidebar-background: #1b1b1b;
+    out property <color> surface: #2d2d2d;
+    out property <color> surface-hover: #383838;
+    out property <color> surface-active: #333333;
+    out property <color> card: #2a2a2a;
+    out property <color> row-hover: #323232;
+    out property <color> border: #3d3d3d;
+    out property <color> border-light: #333333;
+    out property <color> divider: #ffffff10;
 
-    // Accents
-    out property <color> primary: #38bdf8;
-    out property <color> primary-hover: #0284c7;
-    out property <color> primary-text: #0369a1;
+    // Accents (Windows 11 default dark accent)
+    out property <color> primary: #60cdff;
+    out property <color> primary-hover: #5ab9e6;
+    out property <color> primary-pressed: #4fa3cc;
+    out property <color> on-primary: #000000;
 
     // Text colors
-    out property <color> text-main: #f4f4f5;
-    out property <color> text-muted: #a1a1aa;
-    out property <color> text-dim: #71717a;
+    out property <color> text-main: #ffffff;
+    out property <color> text-muted: #c8c8c8;
+    out property <color> text-dim: #8b8b8b;
 
     // Status colors
-    out property <color> status-running: #22c55e;
-    out property <color> status-running-bg: #14532d;
-    out property <color> status-exited: #71717a;
-    out property <color> status-exited-bg: #27272a;
-    out property <color> status-starting: #eab308;
-    out property <color> status-starting-bg: #713f12;
-    out property <color> status-danger: #ef4444;
-    out property <color> status-danger-bg: #7f1d1d;
+    out property <color> status-running: #6ccb5f;
+    out property <color> status-running-bg: #6ccb5f1f;
+    out property <color> status-exited: #9a9a9a;
+    out property <color> status-exited-bg: #ffffff0f;
+    out property <color> status-starting: #fce100;
+    out property <color> status-starting-bg: #fce1001f;
+    out property <color> status-danger: #ff99a4;
+    out property <color> status-danger-bg: #ff99a41a;
+    out property <color> danger-solid: #c42b1c;
+
+    // Lifecycle action colors
+    out property <color> action-start: #6ccb5f;
+    out property <color> action-stop: #ffa94d;
+    out property <color> action-restart: #60cdff;
+    out property <color> action-delete: #ff6b6b;
+
+    // Typography
+    out property <string> icon-font: "Segoe Fluent Icons";
+    out property <string> mono-font: "Cascadia Mono";
+    out property <length> font-caption: 11px;
+    out property <length> font-body: 13px;
+    out property <length> font-body-strong: 14px;
+    out property <length> font-subtitle: 16px;
+    out property <length> font-title: 24px;
+    out property <length> font-display: 32px;
 
     // Layout
     out property <length> spacing-xs: 4px;
     out property <length> spacing-sm: 8px;
     out property <length> spacing-md: 16px;
     out property <length> spacing-lg: 24px;
+    out property <length> spacing-xl: 32px;
     out property <length> radius-sm: 4px;
     out property <length> radius-md: 8px;
     out property <length> radius-lg: 12px;
+    out property <length> control-height: 32px;
+    out property <length> row-height: 56px;
+}
+
+// Segoe Fluent Icons code points
+export global Icons {
+    out property <string> home: "\u{E80F}";
+    out property <string> package: "\u{E7B8}";
+    out property <string> layers: "\u{E81E}";
+    out property <string> drive: "\u{EDA2}";
+    out property <string> diagnostic: "\u{E9D9}";
+    out property <string> refresh: "\u{E72C}";
+    out property <string> play: "\u{E768}";
+    out property <string> stop: "\u{E71A}";
+    out property <string> restart: "\u{E777}";
+    out property <string> terminal: "\u{E756}";
+    out property <string> document: "\u{E8A5}";
+    out property <string> code: "\u{E943}";
+    out property <string> delete: "\u{E74D}";
+    out property <string> download: "\u{E896}";
+    out property <string> power: "\u{E7E8}";
+    out property <string> globe: "\u{E774}";
+    out property <string> warning: "\u{E7BA}";
+    out property <string> close: "\u{E8BB}";
+    out property <string> health: "\u{E95E}";
+    out property <string> info: "\u{E946}";
+    out property <string> stack: "\u{E8A9}";
+    out property <string> chevron-down: "\u{E70D}";
+    out property <string> chevron-right: "\u{E76C}";
 }

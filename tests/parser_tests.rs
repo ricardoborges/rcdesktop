@@ -25,6 +25,22 @@ fn test_parse_containers_json() {
 }
 
 #[test]
+fn test_parse_containers_compose_project() {
+    let json_output = r#"[
+        {"Id": "a1", "Names": ["/web"], "Image": "nginx", "State": "running",
+         "Labels": {"com.docker.compose.project": "shop", "com.docker.compose.service": "web"}},
+        {"Id": "b2", "Names": ["/api"], "Image": "python", "State": "running",
+         "Labels": "com.docker.compose.service=api,com.docker.compose.project=shop"},
+        {"Id": "c3", "Names": ["/solo"], "Image": "redis", "State": "exited", "Labels": ""}
+    ]"#;
+    let list = parse_containers(json_output);
+    assert_eq!(list.len(), 3);
+    assert_eq!(list[0].compose_project.as_deref(), Some("shop"));
+    assert_eq!(list[1].compose_project.as_deref(), Some("shop"));
+    assert_eq!(list[2].compose_project, None);
+}
+
+#[test]
 fn test_parse_containers_tabular() {
     let tabular_output = "CONTAINER ID   IMAGE          COMMAND                  CREATED         STATUS         PORTS                  NAMES\n\
 c1a2b3c4d5e6   nginx:alpine   \"nginx -g 'daemon of…\"   2 hours ago     Up 2 hours     0.0.0.0:8080->80/tcp   web-server\n\

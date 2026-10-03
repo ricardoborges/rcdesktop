@@ -1,6 +1,100 @@
-import { Theme } from "../theme.slint";
-import { ActionButton } from "../components/button.slint";
+import { Theme, Icons } from "../theme.slint";
+import { ActionButton, Icon } from "../components/button.slint";
+import { Card, PageHeader, Divider } from "../components/layout.slint";
 import { SessionInfoItem } from "../models.slint";
+
+component StatCard inherits Card {
+    in property <string> label;
+    in property <string> icon;
+    in property <int> value;
+    in property <string> suffix: "";
+    in property <color> accent: Theme.text-main;
+
+    horizontal-stretch: 1;
+    height: 116px;
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: Theme.spacing-sm;
+
+        HorizontalLayout {
+            spacing: Theme.spacing-sm;
+
+            Text {
+                text: root.label;
+                font-size: Theme.font-body;
+                color: Theme.text-muted;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+                overflow: elide;
+            }
+
+            Rectangle {
+                width: 28px;
+                height: 28px;
+                border-radius: Theme.radius-sm;
+                background: #ffffff0a;
+
+                Icon {
+                    text: root.icon;
+                    color: root.accent;
+                }
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; }
+
+        HorizontalLayout {
+            alignment: start;
+            spacing: 6px;
+
+            Text {
+                text: root.value;
+                font-size: Theme.font-display;
+                font-weight: 600;
+                color: root.accent;
+                vertical-alignment: bottom;
+            }
+
+            if root.suffix != "" : VerticalLayout {
+                alignment: end;
+                padding-bottom: 6px;
+
+                Text {
+                    text: root.suffix;
+                    font-size: Theme.font-body;
+                    color: Theme.text-dim;
+                }
+            }
+        }
+    }
+}
+
+component InfoRow inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <color> value-color: Theme.text-main;
+
+    height: 44px;
+    spacing: Theme.spacing-md;
+
+    Text {
+        width: 160px;
+        text: root.label;
+        font-size: Theme.font-body;
+        color: Theme.text-dim;
+        vertical-alignment: center;
+    }
+
+    Text {
+        horizontal-stretch: 1;
+        text: root.value;
+        font-size: Theme.font-body;
+        color: root.value-color;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
 
 export component DashboardView inherits Rectangle {
     in property <SessionInfoItem> session;
@@ -14,185 +108,93 @@ export component DashboardView inherits Rectangle {
     background: Theme.background;
 
     VerticalLayout {
-        padding: Theme.spacing-lg;
+        padding: 28px;
+        padding-top: Theme.spacing-lg;
         spacing: Theme.spacing-lg;
 
-        // Top bar
-        HorizontalLayout {
-            alignment: space-between;
+        PageHeader {
+            title: "Overview";
+            subtitle: "Windows 11 WSL container runtime";
 
-            VerticalLayout {
-                spacing: Theme.spacing-xs;
-                Text {
-                    text: "System Overview";
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: Theme.text-main;
-                }
-                Text {
-                    text: "Windows 11 WSL Container Runtime";
-                    font-size: 13px;
-                    color: Theme.text-muted;
-                }
+            ActionButton {
+                text: "Refresh";
+                icon: Icons.refresh;
+                clicked => { root.refresh-all(); }
             }
 
-            HorizontalLayout {
-                spacing: Theme.spacing-sm;
-                ActionButton {
-                    text: "Refresh";
-                    icon: "🔄";
-                    clicked => { root.refresh-all(); }
-                }
-                ActionButton {
-                    text: "Restart WSL";
-                    icon: "⚡";
-                    variant: "danger";
-                    clicked => { root.restart-wsl(); }
-                }
+            ActionButton {
+                text: "Restart WSL";
+                icon: Icons.power;
+                variant: "danger";
+                clicked => { root.restart-wsl(); }
             }
         }
 
-        // Stats Cards Grid
         HorizontalLayout {
             spacing: Theme.spacing-md;
-            height: 110px;
 
-            // Running Containers Card
-            Rectangle {
-                background: Theme.card;
-                border-radius: Theme.radius-md;
-                border-width: 1px;
-                border-color: Theme.border-light;
-                horizontal-stretch: 1;
-
-                VerticalLayout {
-                    padding: Theme.spacing-md;
-                    alignment: space-between;
-
-                    Text {
-                        text: "Active Containers";
-                        font-size: 12px;
-                        color: Theme.text-muted;
-                    }
-
-                    HorizontalLayout {
-                        spacing: Theme.spacing-xs;
-                        Text {
-                            text: root.running-containers;
-                            font-size: 28px;
-                            font-weight: 700;
-                            color: Theme.status-running;
-                        }
-                        Text {
-                            text: " / " + root.total-containers + " total";
-                            font-size: 13px;
-                            color: Theme.text-dim;
-                            vertical-alignment: bottom;
-                        }
-                    }
-                }
+            StatCard {
+                label: "Running containers";
+                icon: Icons.package;
+                value: root.running-containers;
+                suffix: "of " + root.total-containers;
+                accent: Theme.status-running;
             }
 
-            // Total Images Card
-            Rectangle {
-                background: Theme.card;
-                border-radius: Theme.radius-md;
-                border-width: 1px;
-                border-color: Theme.border-light;
-                horizontal-stretch: 1;
-
-                VerticalLayout {
-                    padding: Theme.spacing-md;
-                    alignment: space-between;
-
-                    Text {
-                        text: "Stored Images";
-                        font-size: 12px;
-                        color: Theme.text-muted;
-                    }
-
-                    Text {
-                        text: root.total-images;
-                        font-size: 28px;
-                        font-weight: 700;
-                        color: Theme.primary;
-                    }
-                }
+            StatCard {
+                label: "Images";
+                icon: Icons.layers;
+                value: root.total-images;
+                accent: Theme.primary;
             }
 
-            // Volumes Card
-            Rectangle {
-                background: Theme.card;
-                border-radius: Theme.radius-md;
-                border-width: 1px;
-                border-color: Theme.border-light;
-                horizontal-stretch: 1;
-
-                VerticalLayout {
-                    padding: Theme.spacing-md;
-                    alignment: space-between;
-
-                    Text {
-                        text: "Persistent Volumes";
-                        font-size: 12px;
-                        color: Theme.text-muted;
-                    }
-
-                    Text {
-                        text: root.total-volumes;
-                        font-size: 28px;
-                        font-weight: 700;
-                        color: Theme.text-main;
-                    }
-                }
+            StatCard {
+                label: "Volumes";
+                icon: Icons.drive;
+                value: root.total-volumes;
             }
         }
 
-        // Environment Details Card
-        Rectangle {
-            background: Theme.card;
-            border-radius: Theme.radius-md;
-            border-width: 1px;
-            border-color: Theme.border-light;
-
+        Card {
             VerticalLayout {
-                padding: Theme.spacing-md;
-                spacing: Theme.spacing-sm;
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: Theme.spacing-md;
+                padding-bottom: Theme.spacing-sm;
 
                 Text {
-                    text: "WSLC Runtime Environment";
-                    font-size: 14px;
+                    text: "Runtime environment";
+                    font-size: Theme.font-body-strong;
                     font-weight: 600;
                     color: Theme.text-main;
+                    height: 28px;
+                    vertical-alignment: center;
                 }
 
-                HorizontalLayout {
-                    spacing: Theme.spacing-md;
-                    Text {
-                        text: "Binary Version: " + root.session.version;
-                        font-size: 12px;
-                        color: Theme.text-muted;
-                    }
-                    Text {
-                        text: "Session Name: " + root.session.session_id;
-                        font-size: 12px;
-                        color: Theme.text-muted;
-                    }
-                    Text {
-                        text: "Elevation: " + (root.session.is_elevated ? "Elevated (Admin)" : "Standard User");
-                        font-size: 12px;
-                        color: root.session.is_elevated ? Theme.status-starting : Theme.status-running;
-                    }
+                InfoRow {
+                    label: "Health";
+                    value: root.session.status_message;
+                    value-color: root.session.is_healthy ? Theme.status-running : Theme.status-danger;
                 }
-
-                Text {
-                    text: "Health Status: " + root.session.status_message;
-                    font-size: 12px;
-                    color: root.session.is_healthy ? Theme.status-running : Theme.status-danger;
+                Divider {}
+                InfoRow {
+                    label: "Session";
+                    value: root.session.session_id;
+                }
+                Divider {}
+                InfoRow {
+                    label: "wslc version";
+                    value: root.session.version;
+                }
+                Divider {}
+                InfoRow {
+                    label: "Elevation";
+                    value: root.session.is_elevated ? "Administrator (elevated)" : "Standard user";
+                    value-color: root.session.is_elevated ? Theme.status-starting : Theme.text-main;
                 }
             }
         }
 
-        Rectangle { /* vertical spacer */ }
+        Rectangle { vertical-stretch: 1; }
     }
 }

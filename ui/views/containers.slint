@@ -1,10 +1,22 @@
-import { Theme } from "../theme.slint";
-import { ActionButton } from "../components/button.slint";
+import { Theme, Icons } from "../theme.slint";
+import { ActionButton, IconButton, Icon } from "../components/button.slint";
 import { StatusBadge } from "../components/badge.slint";
-import { ContainerItem } from "../models.slint";
+import { Card, PageHeader, EmptyState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
+import { ContainerItem, StackItem } from "../models.slint";
 
-export component ContainersView inherits Rectangle {
-    in property <[ContainerItem]> containers;
+// Shared column widths keep header, stack and container rows aligned
+global Columns {
+    out property <length> name-min: 100px;
+    out property <length> status: 110px;
+    out property <length> ports-min: 110px;
+    out property <length> actions: 6 * Theme.control-height + 5 * 2px;
+    out property <length> indent: 28px;
+}
+
+component ContainerRow inherits VerticalLayout {
+    in property <ContainerItem> item;
+    in property <bool> nested: false;
+    property <bool> busy: root.item.pending != "";
     callback start-container(string);
     callback stop-container(string);
     callback restart-container(string);
@@ -12,180 +24,320 @@ export component ContainersView inherits Rectangle {
     callback view-logs(string);
     callback inspect-container(string);
     callback open-terminal(string);
+
+    TableRow {
+        HorizontalLayout {
+            horizontal-stretch: 2;
+            min-width: Columns.name-min;
+            preferred-width: Columns.name-min;
+            spacing: 0px;
+
+            // Tree guide for containers that belong to a stack
+            if root.nested : Rectangle {
+                width: Columns.indent;
+
+                Rectangle {
+                    x: 9px;
+                    width: 1px;
+                    background: Theme.border;
+                }
+            }
+
+            TwoLineCell {
+                min-width: 0px;
+                primary: root.item.name;
+                secondary: root.item.image + "  ·  " + root.item.id;
+            }
+        }
+
+        StatusBadge {
+            width: Columns.status;
+            text: root.busy ? root.item.pending : root.item.status;
+            state: root.busy ? "Starting" : root.item.state;
+        }
+
+        HorizontalLayout {
+            horizontal-stretch: 1;
+            min-width: Columns.ports-min;
+            preferred-width: Columns.ports-min;
+            spacing: 6px;
+
+            if root.item.ports != "" : Icon {
+                text: Icons.globe;
+                font-size: 12px;
+                color: Theme.primary;
+            }
+
+            TextCell {
+                horizontal-stretch: 1;
+                text: root.item.ports != "" ? root.item.ports : "—";
+                color: root.item.ports != "" ? Theme.primary : Theme.text-dim;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            HorizontalLayout {
+                width: Columns.actions;
+                spacing: 2px;
+                alignment: end;
+
+                if root.item.state != "Running" : IconButton {
+                    icon: Icons.play;
+                    tooltip: "Start";
+                    accent: Theme.action-start;
+                    busy: root.item.pending == "Starting…";
+                    enabled: !root.busy;
+                    clicked => { root.start-container(root.item.id); }
+                }
+
+                if root.item.state == "Running" : IconButton {
+                    icon: Icons.stop;
+                    tooltip: "Stop";
+                    accent: Theme.action-stop;
+                    busy: root.item.pending == "Stopping…";
+                    enabled: !root.busy;
+                    clicked => { root.stop-container(root.item.id); }
+                }
+
+                IconButton {
+                    icon: Icons.restart;
+                    tooltip: "Restart";
+                    accent: Theme.action-restart;
+                    busy: root.item.pending == "Restarting…";
+                    enabled: !root.busy;
+                    clicked => { root.restart-container(root.item.id); }
+                }
+
+                IconButton {
+                    icon: Icons.terminal;
+                    tooltip: "Open terminal";
+                    enabled: !root.busy && root.item.state == "Running";
+                    clicked => { root.open-terminal(root.item.id); }
+                }
+
+                IconButton {
+                    icon: Icons.document;
+                    tooltip: "Logs";
+                    clicked => { root.view-logs(root.item.id); }
+                }
+
+                IconButton {
+                    icon: Icons.code;
+                    tooltip: "Inspect";
+                    clicked => { root.inspect-container(root.item.id); }
+                }
+
+                IconButton {
+                    icon: Icons.delete;
+                    tooltip: "Delete";
+                    accent: Theme.action-delete;
+                    enabled: !root.busy;
+                    clicked => { root.remove-container(root.item.id); }
+                }
+            }
+        }
+    }
+
+    Divider {}
+}
+
+component StackRow inherits VerticalLayout {
+    in property <StackItem> stack;
+    callback toggle();
+    callback start();
+    callback stop();
+
+    Rectangle {
+        height: Theme.row-height;
+        background: toggle-area.has-hover ? Theme.row-hover : #ffffff05;
+
+        toggle-area := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.toggle(); }
+        }
+
+        HorizontalLayout {
+            padding-left: Theme.spacing-md;
+            padding-right: Theme.spacing-sm;
+            spacing: Theme.spacing-md;
+
+            HorizontalLayout {
+                horizontal-stretch: 2;
+                min-width: Columns.name-min;
+                preferred-width: Columns.name-min;
+                spacing: 10px;
+
+                Icon {
+                    width: 18px;
+                    text: root.stack.collapsed ? Icons.chevron-right : Icons.chevron-down;
+                    font-size: 10px;
+                    color: Theme.text-muted;
+                }
+
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 28px;
+                        height: 28px;
+                        border-radius: Theme.radius-sm;
+                        background: #60cdff1f;
+
+                        Icon {
+                            text: Icons.stack;
+                            font-size: 13px;
+                            color: Theme.primary;
+                        }
+                    }
+                }
+
+                TwoLineCell {
+                    min-width: 0px;
+                    primary: root.stack.name;
+                    secondary: "Stack  ·  " + root.stack.total + (root.stack.total == 1 ? " container" : " containers");
+                }
+            }
+
+            StatusBadge {
+                width: Columns.status;
+                text: root.stack.pending != "" ? root.stack.pending : root.stack.running + " / " + root.stack.total + " running";
+                state: root.stack.pending != "" ? "Starting" :
+                       root.stack.running == root.stack.total ? "Running" :
+                       root.stack.running == 0 ? "Exited" : "Warning";
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                min-width: Columns.ports-min;
+                preferred-width: Columns.ports-min;
+            }
+
+            VerticalLayout {
+                alignment: center;
+
+                HorizontalLayout {
+                    width: Columns.actions;
+                    spacing: 2px;
+                    alignment: end;
+
+                    if root.stack.running < root.stack.total : IconButton {
+                        icon: Icons.play;
+                        tooltip: "Start stack";
+                        accent: Theme.action-start;
+                        busy: root.stack.pending == "Starting…";
+                        enabled: root.stack.pending == "";
+                        clicked => { root.start(); }
+                    }
+
+                    if root.stack.running > 0 : IconButton {
+                        icon: Icons.stop;
+                        tooltip: "Stop stack";
+                        accent: Theme.action-stop;
+                        busy: root.stack.pending == "Stopping…";
+                        enabled: root.stack.pending == "";
+                        clicked => { root.stop(); }
+                    }
+                }
+            }
+        }
+    }
+
+    Divider {}
+}
+
+export component ContainersView inherits Rectangle {
+    in property <[StackItem]> stacks;
+    in property <[ContainerItem]> standalone;
+    callback start-container(string);
+    callback stop-container(string);
+    callback restart-container(string);
+    callback remove-container(string);
+    callback view-logs(string);
+    callback inspect-container(string);
+    callback open-terminal(string);
+    callback start-stack(string);
+    callback stop-stack(string);
+    callback toggle-stack(string);
     callback refresh-containers();
+
+    property <bool> empty: root.stacks.length == 0 && root.standalone.length == 0;
 
     background: Theme.background;
 
     VerticalLayout {
-        padding: Theme.spacing-lg;
-        spacing: Theme.spacing-md;
+        padding: 28px;
+        padding-top: Theme.spacing-lg;
+        spacing: Theme.spacing-lg;
 
-        // Header & Actions
-        HorizontalLayout {
-            alignment: space-between;
+        PageHeader {
+            title: "Containers";
+            subtitle: "Compose stacks and standalone WSL containers";
 
-            VerticalLayout {
-                spacing: Theme.spacing-xs;
-                Text {
-                    text: "Containers";
-                    font-size: 20px;
-                    font-weight: 700;
-                    color: Theme.text-main;
-                }
-                Text {
-                    text: "Manage running and stopped WSL containers";
-                    font-size: 13px;
-                    color: Theme.text-muted;
-                }
-            }
-
-            HorizontalLayout {
-                spacing: Theme.spacing-sm;
-                ActionButton {
-                    text: "Refresh";
-                    icon: "🔄";
-                    clicked => { root.refresh-containers(); }
-                }
+            ActionButton {
+                text: "Refresh";
+                icon: Icons.refresh;
+                clicked => { root.refresh-containers(); }
             }
         }
 
-        // Containers List View
-        if root.containers.length == 0 : Rectangle {
-            background: Theme.card;
-            border-radius: Theme.radius-md;
-            border-width: 1px;
-            border-color: Theme.border-light;
-            height: 200px;
-
-            VerticalLayout {
-                alignment: center;
-                spacing: Theme.spacing-sm;
-                Text {
-                    text: "📦 No containers found";
-                    font-size: 16px;
-                    font-weight: 600;
-                    color: Theme.text-muted;
-                    horizontal-alignment: center;
-                }
-                Text {
-                    text: "Pull and run an image to get started with WSLC.";
-                    font-size: 12px;
-                    color: Theme.text-dim;
-                    horizontal-alignment: center;
-                }
-            }
+        if root.empty : EmptyState {
+            icon: Icons.package;
+            title: "No containers found";
+            message: "Pull and run an image to get started with WSLC.";
         }
 
-        // Container rows
-        Flickable {
+        if !root.empty : Card {
             vertical-stretch: 1;
 
             VerticalLayout {
-                spacing: Theme.spacing-sm;
+                TableHeader {
+                    ColumnHeader { text: "NAME"; horizontal-stretch: 2; min-width: Columns.name-min; preferred-width: Columns.name-min; }
+                    ColumnHeader { text: "STATUS"; width: Columns.status; }
+                    ColumnHeader { text: "PORTS"; horizontal-stretch: 1; min-width: Columns.ports-min; preferred-width: Columns.ports-min; }
+                    ColumnHeader { text: "ACTIONS"; width: Columns.actions; horizontal-alignment: right; }
+                }
 
-                for c in root.containers : Rectangle {
-                    background: Theme.card;
-                    border-radius: Theme.radius-md;
-                    border-width: 1px;
-                    border-color: Theme.border-light;
-                    height: 64px;
+                Divider {}
 
-                    HorizontalLayout {
-                        padding-left: Theme.spacing-md;
-                        padding-right: Theme.spacing-md;
-                        spacing: Theme.spacing-md;
-                        alignment: center;
+                Flickable {
+                    vertical-stretch: 1;
 
-                        // Status Badge
-                        StatusBadge {
-                            text: c.status;
-                            state: c.state;
-                        }
+                    VerticalLayout {
+                        alignment: start;
 
-                        // Name & Image
-                        VerticalLayout {
-                            horizontal-stretch: 1;
-                            alignment: center;
-                            spacing: 2px;
-
-                            Text {
-                                text: c.name;
-                                font-size: 14px;
-                                font-weight: 600;
-                                color: Theme.text-main;
+                        for s in root.stacks : VerticalLayout {
+                            StackRow {
+                                stack: s;
+                                toggle => { root.toggle-stack(s.name); }
+                                start => { root.start-stack(s.name); }
+                                stop => { root.stop-stack(s.name); }
                             }
-                            Text {
-                                text: c.image + " (" + c.id + ")";
-                                font-size: 11px;
-                                color: Theme.text-muted;
+
+                            if !s.collapsed : VerticalLayout {
+                                for c in s.containers : ContainerRow {
+                                    item: c;
+                                    nested: true;
+                                    start-container(id) => { root.start-container(id); }
+                                    stop-container(id) => { root.stop-container(id); }
+                                    restart-container(id) => { root.restart-container(id); }
+                                    remove-container(id) => { root.remove-container(id); }
+                                    view-logs(id) => { root.view-logs(id); }
+                                    inspect-container(id) => { root.inspect-container(id); }
+                                    open-terminal(id) => { root.open-terminal(id); }
+                                }
                             }
                         }
 
-                        // Ports
-                        if c.ports != "" : HorizontalLayout {
-                            alignment: center;
-                            padding-right: Theme.spacing-md;
-                            Text {
-                                text: "🌐 " + c.ports;
-                                font-size: 12px;
-                                color: Theme.primary;
-                                vertical-alignment: center;
-                            }
-                        }
-
-                        // Container Action Buttons
-                        HorizontalLayout {
-                            spacing: Theme.spacing-xs;
-                            alignment: center;
-
-                            if c.state != "Running" : ActionButton {
-                                text: "Start";
-                                icon: "▶";
-                                variant: "primary";
-                                clicked => { root.start-container(c.id); }
-                            }
-
-                            if c.state == "Running" : ActionButton {
-                                text: "Stop";
-                                icon: "⏹";
-                                variant: "secondary";
-                                clicked => { root.stop-container(c.id); }
-                            }
-
-                            ActionButton {
-                                text: "Restart";
-                                icon: "🔄";
-                                variant: "secondary";
-                                clicked => { root.restart-container(c.id); }
-                            }
-
-                            ActionButton {
-                                text: "Terminal";
-                                icon: "💻";
-                                variant: "secondary";
-                                clicked => { root.open-terminal(c.id); }
-                            }
-
-                            ActionButton {
-                                text: "Logs";
-                                icon: "📄";
-                                variant: "ghost";
-                                clicked => { root.view-logs(c.id); }
-                            }
-
-                            ActionButton {
-                                text: "Inspect";
-                                icon: "🔍";
-                                variant: "ghost";
-                                clicked => { root.inspect-container(c.id); }
-                            }
-
-                            ActionButton {
-                                text: "Delete";
-                                icon: "🗑️";
-                                variant: "danger";
-                                clicked => { root.remove-container(c.id); }
-                            }
+                        for c in root.standalone : ContainerRow {
+                            item: c;
+                            start-container(id) => { root.start-container(id); }
+                            stop-container(id) => { root.stop-container(id); }
+                            restart-container(id) => { root.restart-container(id); }
+                            remove-container(id) => { root.remove-container(id); }
+                            view-logs(id) => { root.view-logs(id); }
+                            inspect-container(id) => { root.inspect-container(id); }
+                            open-terminal(id) => { root.open-terminal(id); }
                         }
                     }
                 }

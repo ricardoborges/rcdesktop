@@ -1,49 +1,53 @@
 import { Theme } from "../theme.slint";
 
-export component StatusBadge inherits Rectangle {
+// Pill-shaped status indicator. Sizes itself to its text and stays
+// vertically centered when placed in a taller layout cell.
+export component StatusBadge inherits HorizontalLayout {
     in property <string> text: "Running";
-    in property <string> state: "Running"; // Running, Exited, Created, Warning
+    in property <string> state: "Running"; // Running, Exited, Created, Starting, Warning, Danger
 
-    height: 24px;
-    border-radius: Theme.radius-sm;
-    background: state == "Running" ? Theme.status-running-bg :
-                state == "Starting" ? Theme.status-starting-bg :
-                state == "Warning" ? Theme.status-starting-bg :
-                state == "Danger" ? Theme.status-danger-bg :
-                Theme.status-exited-bg;
+    property <color> fg: state == "Running" ? Theme.status-running :
+                         state == "Starting" || state == "Warning" ? Theme.status-starting :
+                         state == "Danger" ? Theme.status-danger :
+                         Theme.status-exited;
+    property <color> bg: state == "Running" ? Theme.status-running-bg :
+                         state == "Starting" || state == "Warning" ? Theme.status-starting-bg :
+                         state == "Danger" ? Theme.status-danger-bg :
+                         Theme.status-exited-bg;
 
-    border-width: 1px;
-    border-color: state == "Running" ? Theme.status-running :
-                  state == "Starting" ? Theme.status-starting :
-                  state == "Warning" ? Theme.status-starting :
-                  state == "Danger" ? Theme.status-danger :
-                  Theme.status-exited;
+    alignment: start;
 
-    HorizontalLayout {
-        padding-left: Theme.spacing-sm;
-        padding-right: Theme.spacing-sm;
-        spacing: Theme.spacing-xs;
+    VerticalLayout {
         alignment: center;
 
-        // Status indicator dot
         Rectangle {
-            width: 6px;
-            height: 6px;
-            border-radius: 3px;
-            background: state == "Running" ? Theme.status-running :
-                        state == "Starting" ? Theme.status-starting :
-                        state == "Warning" ? Theme.status-starting :
-                        state == "Danger" ? Theme.status-danger :
-                        Theme.status-exited;
-            y: (parent.height - self.height) / 2;
-        }
+            height: 22px;
+            border-radius: 11px;
+            background: root.bg;
 
-        Text {
-            text: root.text;
-            color: Theme.text-main;
-            font-size: 11px;
-            font-weight: 600;
-            vertical-alignment: center;
+            HorizontalLayout {
+                padding-left: 8px;
+                padding-right: 10px;
+                spacing: 6px;
+
+                VerticalLayout {
+                    alignment: center;
+                    Rectangle {
+                        width: 6px;
+                        height: 6px;
+                        border-radius: 3px;
+                        background: root.fg;
+                    }
+                }
+
+                Text {
+                    text: root.text;
+                    color: root.fg;
+                    font-size: Theme.font-caption;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                }
+            }
         }
     }
 }

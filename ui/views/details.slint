@@ -1,5 +1,5 @@
-import { Theme } from "../theme.slint";
-import { ActionButton } from "../components/button.slint";
+import { Theme, Icons } from "../theme.slint";
+import { IconButton } from "../components/button.slint";
 
 export component DetailsModal inherits Rectangle {
     in property <bool> is-open: false;
@@ -8,71 +8,85 @@ export component DetailsModal inherits Rectangle {
     callback close();
 
     visible: root.is-open;
-    background: #000000aa;
+    background: #000000a0;
 
-    // Click outside to close touch area
+    // Click outside to close
     TouchArea {
         clicked => { root.close(); }
     }
 
-    // Modal Card
+    // Modal card
     Rectangle {
-        width: 720px;
-        height: 520px;
+        width: min(760px, parent.width - 64px);
+        height: min(560px, parent.height - 64px);
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
         background: Theme.card;
         border-radius: Theme.radius-lg;
         border-width: 1px;
         border-color: Theme.border;
-        x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
+        drop-shadow-blur: 32px;
+        drop-shadow-color: #00000080;
+        drop-shadow-offset-y: 8px;
+        clip: true;
 
-        // Block clicks from propagating to outside
+        // Swallow clicks so they don't reach the backdrop
         TouchArea {}
 
         VerticalLayout {
-            padding: Theme.spacing-md;
-            spacing: Theme.spacing-md;
-
-            // Modal Header
+            // Header
             HorizontalLayout {
-                alignment: space-between;
+                height: 52px;
+                padding-left: 20px;
+                padding-right: 10px;
+                spacing: Theme.spacing-md;
 
                 Text {
+                    horizontal-stretch: 1;
                     text: root.modal-title;
-                    font-size: 16px;
-                    font-weight: 700;
+                    font-size: Theme.font-subtitle;
+                    font-weight: 600;
                     color: Theme.text-main;
                     vertical-alignment: center;
+                    overflow: elide;
                 }
 
-                ActionButton {
-                    text: "Close";
-                    icon: "✕";
-                    variant: "ghost";
-                    clicked => { root.close(); }
+                VerticalLayout {
+                    alignment: center;
+                    IconButton {
+                        icon: Icons.close;
+                        clicked => { root.close(); }
+                    }
                 }
             }
 
-            // Scrollable Content Box
             Rectangle {
-                background: #111113;
-                border-radius: Theme.radius-sm;
-                border-width: 1px;
-                border-color: Theme.border-light;
+                height: 1px;
+                background: Theme.divider;
+            }
+
+            // Scrollable content
+            Rectangle {
                 vertical-stretch: 1;
+                background: #1c1c1c;
+                border-bottom-left-radius: Theme.radius-lg;
+                border-bottom-right-radius: Theme.radius-lg;
 
                 Flickable {
-                    VerticalLayout {
-                        padding: Theme.spacing-md;
+                    content-height: max(self.height, content.preferred-height + 32px);
 
-                        TextInput {
-                            text: root.content-text;
-                            read-only: true;
-                            color: #e4e4e7;
-                            font-family: "Cascadia Mono, Consolas, monospace";
-                            font-size: 12px;
-                            wrap: word-wrap;
-                        }
+                    content := TextInput {
+                        x: 16px;
+                        y: 16px;
+                        width: parent.width - 32px;
+                        text: root.content-text;
+                        read-only: true;
+                        color: #e4e4e4;
+                        selection-background-color: Theme.primary;
+                        selection-foreground-color: Theme.on-primary;
+                        font-family: Theme.mono-font;
+                        font-size: 12px;
+                        wrap: word-wrap;
                     }
                 }
             }

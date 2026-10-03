@@ -7,22 +7,23 @@ import { ImagesView } from "views/images.slint";
 import { VolumesView } from "views/volumes.slint";
 import { DiagnosticsView } from "views/diagnostics.slint";
 import { DetailsModal } from "views/details.slint";
-import { ContainerItem, ImageItem, VolumeItem, SessionInfoItem } from "models.slint";
+import { ContainerItem, StackItem, ImageItem, VolumeItem, SessionInfoItem } from "models.slint";
 
-export { ContainerItem, ImageItem, VolumeItem, SessionInfoItem }
+export { ContainerItem, StackItem, ImageItem, VolumeItem, SessionInfoItem }
 
 export component MainWindow inherits Window {
     title: "RC Desktop - WSLC Manager";
-    min-width: 960px;
+    min-width: 900px;
     min-height: 640px;
     preferred-width: 1100px;
     preferred-height: 740px;
     background: Theme.background;
-    default-font-family: "Segoe UI Variable, Segoe UI, sans-serif";
+    default-font-family: "Segoe UI";
 
     // Application state models exposed to Rust
     in-out property <int> active-tab: 0;
-    in-out property <[ContainerItem]> containers-list: [];
+    in-out property <[StackItem]> stacks-list: [];
+    in-out property <[ContainerItem]> standalone-containers: [];
     in-out property <[ImageItem]> images-list: [];
     in-out property <[VolumeItem]> volumes-list: [];
     in-out property <SessionInfoItem> session-info: {
@@ -52,6 +53,9 @@ export component MainWindow inherits Window {
     callback view-logs(string);
     callback inspect-container(string);
     callback open-terminal(string);
+    callback start-stack(string);
+    callback stop-stack(string);
+    callback toggle-stack(string);
 
     callback pull-image(string);
     callback remove-image(string);
@@ -91,7 +95,8 @@ export component MainWindow inherits Window {
                 }
 
                 if root.active-tab == 1 : ContainersView {
-                    containers: root.containers-list;
+                    stacks: root.stacks-list;
+                    standalone: root.standalone-containers;
                     start-container(id) => { root.start-container(id); }
                     stop-container(id) => { root.stop-container(id); }
                     restart-container(id) => { root.restart-container(id); }
@@ -99,6 +104,9 @@ export component MainWindow inherits Window {
                     view-logs(id) => { root.view-logs(id); }
                     inspect-container(id) => { root.inspect-container(id); }
                     open-terminal(id) => { root.open-terminal(id); }
+                    start-stack(name) => { root.start-stack(name); }
+                    stop-stack(name) => { root.stop-stack(name); }
+                    toggle-stack(name) => { root.toggle-stack(name); }
                     refresh-containers => { root.refresh-all(); }
                 }
 

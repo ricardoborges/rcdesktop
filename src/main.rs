@@ -15,7 +15,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let client: Arc<dyn WslcClient> = if use_mock {
         println!("[RC Desktop] Running in MOCK MODE (offline preview)");
-        Arc::new(MockWslcClient::new())
+        Arc::new(MockWslcClient::new().with_latency(std::time::Duration::from_millis(1200)))
     } else {
         println!("[RC Desktop] Running in LIVE WSLC MODE");
         Arc::new(RealWslcClient::new())

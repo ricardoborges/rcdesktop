@@ -5,6 +5,19 @@ export struct ContainerItem {
     status: string,
     state: string,
     ports: string,
+    stack: string,
+    // In-flight lifecycle label ("Starting…", "Stopping…"); empty when idle
+    pending: string,
+}
+
+// Containers sharing a compose project, shown as a collapsible group.
+export struct StackItem {
+    name: string,
+    running: int,
+    total: int,
+    collapsed: bool,
+    pending: string,
+    containers: [ContainerItem],
 }
 
 export struct ImageItem {

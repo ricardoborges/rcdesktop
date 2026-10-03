@@ -1,4 +1,5 @@
-import { Theme } from "../theme.slint";
+import { Theme, Icons } from "../theme.slint";
+import { Icon } from "button.slint";
 
 export component StatusBar inherits Rectangle {
     in property <string> session-name: "wslc-default";
@@ -7,7 +8,7 @@ export component StatusBar inherits Rectangle {
     in property <bool> is-elevated: false;
     in property <string> message: "Connected";
 
-    height: 32px;
+    height: 30px;
     background: Theme.sidebar-background;
 
     // Top border line
@@ -15,7 +16,7 @@ export component StatusBar inherits Rectangle {
         y: 0px;
         width: parent.width;
         height: 1px;
-        background: Theme.border;
+        background: Theme.border-light;
     }
 
     HorizontalLayout {
@@ -23,62 +24,56 @@ export component StatusBar inherits Rectangle {
         padding-right: Theme.spacing-md;
         spacing: Theme.spacing-md;
 
-        // Health indicator
+        // Health indicator + message (left, takes remaining space)
         HorizontalLayout {
-            spacing: Theme.spacing-xs;
-            alignment: start;
-            Rectangle {
-                width: 8px;
-                height: 8px;
-                border-radius: 4px;
-                background: root.is-healthy ? Theme.status-running : Theme.status-danger;
-                y: (parent.height - self.height) / 2;
-            }
+            horizontal-stretch: 1;
+            spacing: Theme.spacing-sm;
 
-            Text {
-                text: "WSLC: " + root.message;
-                color: Theme.text-main;
-                font-size: 11px;
-                vertical-alignment: center;
-            }
-        }
-
-        // Session ID & Version
-        HorizontalLayout {
-            spacing: Theme.spacing-xs;
-            alignment: start;
-            Text {
-                text: "Session: " + root.session-name + " | v" + root.version;
-                color: Theme.text-muted;
-                font-size: 11px;
-                vertical-alignment: center;
-            }
-        }
-
-        // Elevation warning banner (if elevated)
-        if root.is-elevated : HorizontalLayout {
-            spacing: Theme.spacing-xs;
-            alignment: start;
-            Rectangle {
-                background: Theme.status-starting-bg;
-                border-radius: Theme.radius-sm;
-                border-width: 1px;
-                border-color: Theme.status-starting;
-
-                HorizontalLayout {
-                    padding-left: 6px;
-                    padding-right: 6px;
-                    Text {
-                        text: "⚠️ Running as Administrator";
-                        color: Theme.status-starting;
-                        font-size: 11px;
-                        font-weight: 600;
-                        vertical-alignment: center;
-                    }
+            VerticalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: root.is-healthy ? Theme.status-running : Theme.status-danger;
                 }
             }
+
+            Text {
+                text: root.message;
+                color: Theme.text-muted;
+                font-size: Theme.font-caption;
+                vertical-alignment: center;
+                overflow: elide;
+                horizontal-stretch: 1;
+            }
         }
 
-        Rectangle { /* spacer */ }
+        // Elevation warning
+        if root.is-elevated : HorizontalLayout {
+            spacing: 6px;
+
+            Icon {
+                text: Icons.warning;
+                font-size: 12px;
+                color: Theme.status-starting;
+            }
+
+            Text {
+                text: "Running as Administrator";
+                color: Theme.status-starting;
+                font-size: Theme.font-caption;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+
+        // Session & version (right)
+        Text {
+            text: "Session " + root.session-name + "  ·  wslc v" + root.version;
+            color: Theme.text-dim;
+            font-size: Theme.font-caption;
+            vertical-alignment: center;
+        }
     }
 }

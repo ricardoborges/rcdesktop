@@ -12,6 +12,8 @@ pub struct MockWslcClient {
     containers: Arc<RwLock<Vec<Container>>>,
     images: Arc<RwLock<Vec<ImageSummary>>>,
     volumes: Arc<RwLock<Vec<VolumeSummary>>>,
+    // Simulated wslc latency for lifecycle commands (zero in tests)
+    latency: std::time::Duration,
 }
 
 impl Default for MockWslcClient {
@@ -21,6 +23,11 @@ impl Default for MockWslcClient {
 }
 
 impl MockWslcClient {
+    pub fn with_latency(mut self, latency: std::time::Duration) -> Self {
+        self.latency = latency;
+        self
+    }
+
     pub fn new() -> Self {
         let initial_containers = vec![
             Container {
@@ -109,6 +116,7 @@ impl MockWslcClient {
             containers: Arc::new(RwLock::new(initial_containers)),
             images: Arc::new(RwLock::new(initial_images)),
             volumes: Arc::new(RwLock::new(initial_volumes)),
+            latency: std::time::Duration::ZERO,
         }
     }
 }
@@ -125,6 +133,7 @@ impl WslcClient for MockWslcClient {
     }
 
     async fn start_container(&self, id: &str) -> Result<(), String> {
+        tokio::time::sleep(self.latency).await;
         let mut list = self.containers.write().await;
         if let Some(c) = list.iter_mut().find(|c| c.id == id || c.primary_name() == id) {
             c.status = "Running".into();
@@ -136,6 +145,7 @@ impl WslcClient for MockWslcClient {
     }
 
     async fn stop_container(&self, id: &str) -> Result<(), String> {
+        tokio::time::sleep(self.latency).await;
         let mut list = self.containers.write().await;
         if let Some(c) = list.iter_mut().find(|c| c.id == id || c.primary_name() == id) {
             c.status = "Exited (0)".into();
