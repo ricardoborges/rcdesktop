@@ -1,37 +1,31 @@
 # RC Desktop
 
-**RC Desktop** is a native Windows 11 desktop application written in **Rust** and **Slint**, designed as a lightweight, fluid alternative to Rancher Desktop / Docker Desktop for Microsoft's new [WSL Containers (WSLC)](https://learn.microsoft.com/windows/wsl/wsl-container) runtime.
+A small Windows app for managing containers running on [WSL Containers](https://learn.microsoft.com/windows/wsl/wsl-container) (`wslc.exe`).
 
----
+I wanted something like Docker Desktop or Rancher Desktop for wslc, without dragging a whole Electron app along. So this is Rust + [Slint](https://slint.dev): it starts fast, uses little memory, and just calls `wslc.exe` underneath.
 
-## ✨ Features
+It's early and built for my own use, so expect rough edges.
 
-- **Containers Management:** Live overview of running and stopped containers, one-click start/stop/restart/delete, live logs viewer, JSON inspect viewer, and direct shell attachment via Windows Terminal (`wt.exe`).
-- **Images:** Local image repository overview, OCI image pull (`pull <image>:<tag>`), and image deletion.
-- **Volumes & Networks:** Inspection of persistent storage volumes and networks managed by WSLC.
-- **Single-Lane Command Queue:** Native `wslc.exe` concurrency protection using an asynchronous actor queue in Tokio. Prevents machine-wide `ERROR_SHARING_VIOLATION` (0x80070020) session store corruption with exponential backoff and retry.
-- **Windows 11 Fluent UI:** Native styling using Slint's Fluent theme tokens with dark mode, responsive layouts, and zero webview/Electron overhead.
-- **Session & Elevation Monitor:** Real-time visibility into the WSL utility VM status, elevation level detection (warning if running elevated), and 1-click diagnostic recovery (`wsl --shutdown`).
-- **Windows System Tray:** Persistent tray icon in the Windows taskbar with quick status, WSL restart shortcut, and background management.
-- **Mock Mode:** Full offline simulation mode (`--mock` or `RCDESKTOP_MOCK=1`) for local development without active WSL containers.
+## What it does
 
----
+- Lists containers, with compose projects grouped into stacks you can start/stop at once
+- Start, stop, restart and remove containers; view logs and `inspect` output
+- Opens a shell in a container through Windows Terminal
+- Lists, pulls and removes images; lists volumes
+- Shows the WSL session state and warns you if the app is running elevated
+- Sits in the system tray, with a shortcut to `wsl --shutdown` when things get stuck
 
-## 🚀 Getting Started
+One detail worth knowing: wslc doesn't like being called concurrently. Two calls at the same time can fail with `ERROR_SHARING_VIOLATION` (0x80070020). The app runs every command through a single queue and retries with backoff when that happens.
 
-### Prerequisites
-- Windows 11 with the [WSL container preview](https://learn.microsoft.com/windows/wsl/wsl-container) (`wslc.exe`).
-- Rust 1.80+ (toolchain installed via `rustup`).
+## Running it
 
-### Running Live with `wslc`
-To launch against your local Windows 11 WSL container runtime:
+You need Windows 11 with wslc installed and a recent Rust toolchain (1.80+).
 
 ```powershell
 cargo run --release
 ```
 
-### Running in Mock Mode (Offline Development)
-To test and experiment with all UI features without needing active containers:
+No wslc around, or just working on the UI? There's a mock mode with fake data:
 
 ```powershell
 cargo run -- --mock
@@ -39,39 +33,20 @@ cargo run -- --mock
 $env:RCDESKTOP_MOCK="1"; cargo run
 ```
 
----
-
-## 🧪 Running Tests
-
-The test suite validates domain models, regex/JSON output parsers, the single-lane queue, and end-to-end container workflows:
+Tests:
 
 ```powershell
 cargo test
 ```
 
----
+## Code layout
 
-## 🏛️ Architecture
+- `ui/` – Slint files: the main window, theme, components and one file per view
+- `src/wslc/` – everything that talks to `wslc.exe`: the command queue, output parsing and the mock client
+- `src/domain/` – plain types for containers, images, volumes and the session
+- `src/app.rs` – glue between the Tokio worker and the Slint event loop
+- `src/tray.rs` – system tray icon
 
-```
-rcdesktop/
-├── build.rs                   # Slint UI compiler script
-├── ui/                        # Declarative native UI (Slint)
-│   ├── app.slint              # Main window & view router
-│   ├── theme.slint            # Windows 11 Fluent tokens
-│   ├── components/            # Reusable widgets (sidebar, status bar, badges, buttons)
-│   └── views/                 # View screens (dashboard, containers, images, volumes, diagnostics, details)
-├── src/
-│   ├── main.rs                # App entrypoint and runtime initialization
-│   ├── app.rs                 # Bridge between Tokio background tasks and Slint event loop
-│   ├── domain/                # Core domain entities (Container, Image, Volume, Session)
-│   ├── wslc/                  # wslc.exe communication, single-lane queue, parser, and mock engine
-│   ├── tray.rs                # Windows system tray integration
-│   └── config.rs              # App configuration & mock detection
-└── tests/                     # Automated unit and integration test suite
-```
+## License
 
----
-
-## 📄 License
 MIT
