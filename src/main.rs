@@ -23,6 +23,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let main_window = MainWindow::new()?;
 
+    // Initialize System Tray
+    let _tray = match rcdesktop::tray::TrayManager::new() {
+        Ok(t) => {
+            println!("[RC Desktop] System tray icon initialized.");
+            Some(t)
+        }
+        Err(e) => {
+            eprintln!("[RC Desktop] Warning: Could not initialize system tray: {}", e);
+            None
+        }
+    };
+
     // Wire application controller and event loops
     AppController::setup(&main_window, client);
 
