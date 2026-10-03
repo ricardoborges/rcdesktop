@@ -1,5 +1,6 @@
 import { Theme } from "../theme.slint";
 import { Icon } from "button.slint";
+import { Spinner } from "std-widgets.slint";
 
 export component Card inherits Rectangle {
     vertical-stretch: 0;
@@ -76,6 +77,41 @@ export component EmptyState inherits Card {
         Text {
             text: root.message;
             font-size: Theme.font-body;
+            color: Theme.text-dim;
+            horizontal-alignment: center;
+        }
+    }
+}
+
+// Placeholder shown while a list hasn't been fetched yet.
+export component LoadingState inherits Card {
+    in property <string> message: "Loading…";
+
+    height: 200px;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: Theme.spacing-md;
+
+        HorizontalLayout {
+            alignment: center;
+            Spinner {
+                width: 28px;
+                height: 28px;
+                indeterminate: true;
+            }
+        }
+
+        Text {
+            text: root.message;
+            font-size: Theme.font-body;
+            color: Theme.text-muted;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            text: "Starting WSL can take a few seconds the first time.";
+            font-size: Theme.font-caption;
             color: Theme.text-dim;
             horizontal-alignment: center;
         }

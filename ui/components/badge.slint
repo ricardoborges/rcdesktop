@@ -20,10 +20,13 @@ export component StatusBadge inherits HorizontalLayout {
     VerticalLayout {
         alignment: center;
 
+        // Shrinks and elides when the column is narrower than the text
         Rectangle {
             height: 22px;
+            min-width: 0px;
             border-radius: 11px;
             background: root.bg;
+            clip: true;
 
             HorizontalLayout {
                 padding-left: 8px;
@@ -46,6 +49,8 @@ export component StatusBadge inherits HorizontalLayout {
                     font-size: Theme.font-caption;
                     font-weight: 600;
                     vertical-alignment: center;
+                    overflow: elide;
+                    min-width: 0px;
                 }
             }
         }

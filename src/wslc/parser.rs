@@ -1,19 +1,56 @@
 use crate::domain::container::{Container, ContainerState, PortMapping};
 use crate::domain::image::ImageSummary;
-use crate::domain::volume::VolumeSummary;
+use crate::domain::system::{WslcSession, WslcSystemInfo};
+use crate::domain::volume::{NetworkSummary, VolumeSummary};
 use serde_json::Value;
 
+/// Accepts `wslc 3.0.1.0` (current) and `wslc version 3.0.1.0`.
 pub fn parse_version(raw: &str) -> Option<String> {
-    for line in raw.lines() {
-        let trimmed = line.trim();
-        if trimmed.starts_with("wslc version") {
-            let parts: Vec<&str> = trimmed.split_whitespace().collect();
-            if parts.len() >= 3 {
-                return Some(parts[2].to_string());
-            }
+    raw.lines().find_map(|line| {
+        let mut parts = line.split_whitespace();
+        if parts.next()? != "wslc" {
+            return None;
         }
-    }
-    None
+        let next = parts.next()?;
+        let version = if next == "version" { parts.next()? } else { next };
+        version.starts_with(|c: char| c.is_ascii_digit()).then(|| version.to_string())
+    })
+}
+
+/// Parses `wslc info --format json`.
+pub fn parse_system_info(raw: &str) -> Option<WslcSystemInfo> {
+    let v: Value = serde_json::from_str(raw.trim()).ok()?;
+    let text = |v: Option<&Value>| match v {
+        Some(Value::String(s)) => s.clone(),
+        Some(Value::Number(n)) => n.to_string(),
+        _ => String::new(),
+    };
+    let client = v.get("Client")?;
+    let server = v.get("Server");
+    let c = |k: &str| text(client.get(k));
+    Some(WslcSystemInfo {
+        version: c("Version"),
+        kernel_version: c("KernelVersion"),
+        windows_version: c("WindowsVersion"),
+        direct3d_version: c("Direct3DVersion"),
+        dxcore_version: c("DxCoreVersion"),
+        settings_file: c("SettingsFile"),
+        session_manager_version: text(server.and_then(|s| s.get("SessionManagerVersion"))),
+        sessions: server
+            .and_then(|s| s.get("Sessions"))
+            .and_then(Value::as_array)
+            .map(|items| {
+                items
+                    .iter()
+                    .map(|s| WslcSession {
+                        id: text(s.get("ID")),
+                        name: text(s.get("Name")),
+                        creator_pid: text(s.get("CreatorPid")),
+                    })
+                    .collect()
+            })
+            .unwrap_or_default(),
+    })
 }
 
 pub fn parse_containers(raw: &str) -> Vec<Container> {
@@ -225,4 +262,48 @@ pub fn parse_volumes(raw: &str) -> Vec<VolumeSummary> {
         }
     }
     volumes
+}
+
+/// Networks from `wslc network list --format json`: one JSON object per
+/// line (or a JSON array). Falls back to the table (ID, NAME, DRIVER, SCOPE).
+pub fn parse_networks(raw: &str) -> Vec<NetworkSummary> {
+    let trimmed = raw.trim();
+    let from_json = |v: &Value| {
+        let field = |k: &str| v.get(k).and_then(Value::as_str).unwrap_or_default().to_string();
+        Some(NetworkSummary {
+            id: field("ID"),
+            name: v.get("Name")?.as_str()?.to_string(),
+            driver: field("Driver"),
+            scope: field("Scope"),
+            compose_project: parse_compose_project(v),
+        })
+    };
+
+    if trimmed.starts_with('[') {
+        if let Ok(Value::Array(items)) = serde_json::from_str::<Value>(trimmed) {
+            return items.iter().filter_map(from_json).collect();
+        }
+    }
+    if trimmed.starts_with('{') {
+        return trimmed
+            .lines()
+            .filter_map(|l| serde_json::from_str::<Value>(l.trim()).ok())
+            .filter_map(|v| from_json(&v))
+            .collect();
+    }
+
+    trimmed
+        .lines()
+        .skip(1)
+        .filter_map(|line| {
+            let cols: Vec<&str> = line.split_whitespace().collect();
+            Some(NetworkSummary {
+                id: cols.first()?.to_string(),
+                name: cols.get(1)?.to_string(),
+                driver: cols.get(2).unwrap_or(&"").to_string(),
+                scope: cols.get(3).unwrap_or(&"").to_string(),
+                compose_project: None,
+            })
+        })
+        .collect()
 }

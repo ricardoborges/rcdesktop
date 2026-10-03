@@ -5,11 +5,15 @@ import { DashboardView } from "views/dashboard.slint";
 import { ContainersView } from "views/containers.slint";
 import { ImagesView } from "views/images.slint";
 import { VolumesView } from "views/volumes.slint";
+import { NetworksView } from "views/networks.slint";
+import { WslcView } from "views/wslc.slint";
 import { DiagnosticsView } from "views/diagnostics.slint";
 import { DetailsModal } from "views/details.slint";
-import { ContainerItem, StackItem, ImageItem, VolumeItem, SessionInfoItem } from "models.slint";
+import { DeployView } from "views/deploy.slint";
+import { ConfirmModal } from "views/confirm.slint";
+import { ContainerItem, StackItem, ImageItem, VolumeItem, NetworkItem, WslcInfoItem, SessionInfoItem, DeployForm, PortLink } from "models.slint";
 
-export { ContainerItem, StackItem, ImageItem, VolumeItem, SessionInfoItem }
+export { ContainerItem, StackItem, ImageItem, VolumeItem, NetworkItem, WslcInfoItem, SessionInfoItem, DeployForm, PortLink }
 
 export component MainWindow inherits Window {
     title: "RC Desktop - WSLC Manager";
@@ -26,6 +30,16 @@ export component MainWindow inherits Window {
     in-out property <[ContainerItem]> standalone-containers: [];
     in-out property <[ImageItem]> images-list: [];
     in-out property <[VolumeItem]> volumes-list: [];
+    in-out property <[NetworkItem]> networks-list: [];
+    in-out property <int> total-networks-count: 0;
+    // WSLC page
+    in-out property <WslcInfoItem> wslc-info;
+    in-out property <bool> wslc-info-loading: false;
+    in-out property <string> prune-pending: "";
+    in-out property <string> prune-output: "";
+    // Network / prune awaiting confirmation; empty when the dialog is closed
+    in-out property <string> confirm-remove-network: "";
+    in-out property <string> confirm-prune: "";
     in-out property <SessionInfoItem> session-info: {
         session_id: "default-wslc",
         is_elevated: false,
@@ -45,6 +59,29 @@ export component MainWindow inherits Window {
     in-out property <string> details-modal-title: "Details";
     in-out property <string> details-modal-content: "";
 
+    // Stack awaiting "Remove stack" confirmation; empty when the dialog is closed
+    in-out property <string> confirm-remove-stack: "";
+    // True until the first data load finishes
+    in-out property <bool> loading: true;
+    // rcompose.exe used to deploy stacks; empty when it isn't installed
+    in-out property <string> rcompose-path: "";
+    in-out property <bool> rcompose-installing: false;
+    // True while a user-triggered refresh (or the first load) is running
+    in-out property <bool> refreshing: false;
+    // Volume awaiting "Delete volume" confirmation; empty when the dialog is closed
+    in-out property <string> confirm-remove-volume: "";
+
+    // Deploy form state (tab 5)
+    in-out property <string> deploy-image: "";
+    in-out property <bool> deploy-busy: false;
+    in-out property <string> deploy-error: "";
+    in-out property <string> deploy-log: "";
+    in-out property <int> deploy-method: 0;
+    in-out property <string> compose-yaml: "";
+    in-out property <string> compose-project: "";
+    in-out property <string> compose-file: "";
+    in-out property <string> run-command: "";
+
     // Callbacks to Rust backend
     callback start-container(string);
     callback stop-container(string);
@@ -53,12 +90,36 @@ export component MainWindow inherits Window {
     callback view-logs(string);
     callback inspect-container(string);
     callback open-terminal(string);
+    callback open-url(string);
     callback start-stack(string);
     callback stop-stack(string);
     callback toggle-stack(string);
+    callback remove-stack(string);
+    callback deploy-container(DeployForm);
+    pure callback preview-deploy(DeployForm) -> string;
+    callback deploy-compose();
+    pure callback preview-compose(string, string, string) -> string;
+    callback open-compose-file();
+    callback install-rcompose();
+    callback deploy-run-command();
+    pure callback preview-run-command(string) -> string;
+
+    // Opens the deploy form, optionally prefilled with an image
+    function open-deploy(image: string) {
+        root.deploy-image = image;
+        root.deploy-error = "";
+        root.deploy-log = "";
+        if image != "" { root.deploy-method = 0; }
+        root.active-tab = 5;
+    }
 
     callback pull-image(string);
     callback remove-image(string);
+    callback remove-volume(string);
+    callback remove-network(string);
+    callback prune(string);
+    callback refresh-wslc-info();
+    callback open-wslc-settings();
 
     callback refresh-all();
     callback restart-wsl();
@@ -76,6 +137,7 @@ export component MainWindow inherits Window {
                 container-count: root.total-containers-count;
                 image-count: root.total-images-count;
                 volume-count: root.total-volumes-count;
+                network-count: root.total-networks-count;
                 tab-selected(idx) => { root.active-tab = idx; }
             }
 
@@ -85,6 +147,7 @@ export component MainWindow inherits Window {
                 background: Theme.background;
 
                 if root.active-tab == 0 : DashboardView {
+                    refreshing: root.refreshing;
                     session: root.session-info;
                     running-containers: root.running-containers-count;
                     total-containers: root.total-containers-count;
@@ -95,6 +158,8 @@ export component MainWindow inherits Window {
                 }
 
                 if root.active-tab == 1 : ContainersView {
+                    loading: root.loading;
+                    refreshing: root.refreshing;
                     stacks: root.stacks-list;
                     standalone: root.standalone-containers;
                     start-container(id) => { root.start-container(id); }
@@ -104,22 +169,74 @@ export component MainWindow inherits Window {
                     view-logs(id) => { root.view-logs(id); }
                     inspect-container(id) => { root.inspect-container(id); }
                     open-terminal(id) => { root.open-terminal(id); }
+                    open-url(url) => { root.open-url(url); }
                     start-stack(name) => { root.start-stack(name); }
                     stop-stack(name) => { root.stop-stack(name); }
                     toggle-stack(name) => { root.toggle-stack(name); }
+                    remove-stack(name) => { root.confirm-remove-stack = name; }
                     refresh-containers => { root.refresh-all(); }
+                    add-container => { root.open-deploy(""); }
                 }
 
                 if root.active-tab == 2 : ImagesView {
+                    loading: root.loading;
+                    refreshing: root.refreshing;
                     images: root.images-list;
                     pull-image(img) => { root.pull-image(img); }
                     remove-image(id) => { root.remove-image(id); }
                     refresh-images => { root.refresh-all(); }
+                    run-image(name) => { root.open-deploy(name); }
+                }
+
+                if root.active-tab == 5 : DeployView {
+                    initial-image: root.deploy-image;
+                    busy: root.deploy-busy;
+                    error: root.deploy-error;
+                    log: root.deploy-log;
+                    method <=> root.deploy-method;
+                    compose-yaml <=> root.compose-yaml;
+                    compose-project <=> root.compose-project;
+                    compose-file: root.compose-file;
+                    rcompose-path: root.rcompose-path;
+                    rcompose-installing: root.rcompose-installing;
+                    install-rcompose => { root.install-rcompose(); }
+                    run-command <=> root.run-command;
+                    deploy(form) => { root.deploy-container(form); }
+                    deploy-compose => { root.deploy-compose(); }
+                    deploy-run => { root.deploy-run-command(); }
+                    open-compose-file => { root.open-compose-file(); }
+                    cancel => { root.active-tab = 1; }
+                    preview(form) => { return root.preview-deploy(form); }
+                    preview-compose(yaml, project, file) => { return root.preview-compose(yaml, project, file); }
+                    preview-run(cmd) => { return root.preview-run-command(cmd); }
+                }
+
+                if root.active-tab == 6 : NetworksView {
+                    loading: root.loading;
+                    refreshing: root.refreshing;
+                    networks: root.networks-list;
+                    refresh-networks => { root.refresh-all(); }
+                    remove-network(name) => { root.confirm-remove-network = name; }
+                }
+
+                if root.active-tab == 7 : WslcView {
+                    info: root.wslc-info;
+                    info-loading: root.wslc-info-loading;
+                    rcompose-path: root.rcompose-path;
+                    prune-pending: root.prune-pending;
+                    prune-output: root.prune-output;
+                    refresh-info => { root.refresh-wslc-info(); }
+                    open-settings => { root.open-wslc-settings(); }
+                    prune(key) => { root.confirm-prune = key; }
+                    open-url(url) => { root.open-url(url); }
                 }
 
                 if root.active-tab == 3 : VolumesView {
+                    loading: root.loading;
+                    refreshing: root.refreshing;
                     volumes: root.volumes-list;
                     refresh-volumes => { root.refresh-all(); }
+                    remove-volume(name) => { root.confirm-remove-volume = name; }
                 }
 
                 if root.active-tab == 4 : DiagnosticsView {
@@ -132,6 +249,7 @@ export component MainWindow inherits Window {
 
         // Bottom Status Bar
         StatusBar {
+            busy: root.refreshing;
             session-name: root.session-info.session_id;
             version: root.session-info.version;
             is-healthy: root.session-info.is_healthy;
@@ -146,5 +264,61 @@ export component MainWindow inherits Window {
         modal-title: root.details-modal-title;
         content-text: root.details-modal-content;
         close => { root.details-modal-open = false; }
+    }
+
+    ConfirmModal {
+        is-open: root.confirm-remove-stack != "";
+        modal-title: "Remove stack \"" + root.confirm-remove-stack + "\"?";
+        message: "All of its containers will be stopped and removed, along with the networks it created. Volumes are kept, so its data is not lost.";
+        confirm-text: "Remove stack";
+        cancel => { root.confirm-remove-stack = ""; }
+        confirm => {
+            root.remove-stack(root.confirm-remove-stack);
+            root.confirm-remove-stack = "";
+        }
+    }
+
+    ConfirmModal {
+        is-open: root.confirm-remove-volume != "";
+        modal-title: "Delete volume \"" + root.confirm-remove-volume + "\"?";
+        message: "All data stored in this volume will be permanently deleted. Volumes in use by a container cannot be removed.";
+        confirm-text: "Delete volume";
+        cancel => { root.confirm-remove-volume = ""; }
+        confirm => {
+            root.remove-volume(root.confirm-remove-volume);
+            root.confirm-remove-volume = "";
+        }
+    }
+
+    ConfirmModal {
+        is-open: root.confirm-remove-network != "";
+        modal-title: "Delete network \"" + root.confirm-remove-network + "\"?";
+        message: "Containers connected to it must be removed first, or the deletion fails.";
+        confirm-text: "Delete network";
+        cancel => { root.confirm-remove-network = ""; }
+        confirm => {
+            root.remove-network(root.confirm-remove-network);
+            root.confirm-remove-network = "";
+        }
+    }
+
+    ConfirmModal {
+        is-open: root.confirm-prune != "";
+        modal-title: root.confirm-prune == "containers" ? "Remove stopped containers?"
+            : root.confirm-prune == "images" ? "Remove dangling images?"
+            : root.confirm-prune == "images-all" ? "Remove all unused images?"
+            : root.confirm-prune == "networks" ? "Remove unused networks?"
+            : "Delete unused volumes?";
+        message: root.confirm-prune == "containers" ? "Every container that isn't running is removed. Their volumes are kept."
+            : root.confirm-prune == "images" ? "Untagged images not used by any container are removed."
+            : root.confirm-prune == "images-all" ? "Every image not used by a container is removed, including tagged ones. They'll need to be pulled again."
+            : root.confirm-prune == "networks" ? "Networks with no connected container are removed."
+            : "Every volume not referenced by a container is deleted, named volumes included. Their data is lost permanently.";
+        confirm-text: root.confirm-prune == "volumes" ? "Delete volumes" : "Clean up";
+        cancel => { root.confirm-prune = ""; }
+        confirm => {
+            root.prune(root.confirm-prune);
+            root.confirm-prune = "";
+        }
     }
 }

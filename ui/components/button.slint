@@ -13,6 +13,8 @@ export component ActionButton inherits Rectangle {
     in property <string> icon: "";
     in property <string> variant: "secondary"; // primary, secondary, danger, ghost
     in property <bool> enabled: true;
+    // Swaps the icon for a spinner and blocks clicks while work is in flight
+    in property <bool> busy: false;
     callback clicked();
 
     property <color> fg: !root.enabled ? Theme.text-dim :
@@ -31,8 +33,8 @@ export component ActionButton inherits Rectangle {
     border-color: Theme.border;
 
     touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: pointer;
+        enabled: root.enabled && !root.busy;
+        mouse-cursor: root.busy ? default : pointer;
         clicked => { root.clicked(); }
     }
 
@@ -42,7 +44,16 @@ export component ActionButton inherits Rectangle {
         spacing: Theme.spacing-sm;
         alignment: center;
 
-        if root.icon != "" : Icon {
+        if root.busy : VerticalLayout {
+            alignment: center;
+            Spinner {
+                width: 13px;
+                height: 13px;
+                indeterminate: true;
+            }
+        }
+
+        if root.icon != "" && !root.busy : Icon {
             text: root.icon;
             font-size: 13px;
             color: root.fg;

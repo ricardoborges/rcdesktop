@@ -1,5 +1,6 @@
 import { Theme, Icons } from "../theme.slint";
 import { Icon } from "button.slint";
+import { Spinner } from "std-widgets.slint";
 
 export component StatusBar inherits Rectangle {
     in property <string> session-name: "wslc-default";
@@ -7,6 +8,8 @@ export component StatusBar inherits Rectangle {
     in property <bool> is-healthy: true;
     in property <bool> is-elevated: false;
     in property <string> message: "Connected";
+    // Shows a spinner and a loading message in place of the health message
+    in property <bool> busy: false;
 
     height: 30px;
     background: Theme.sidebar-background;
@@ -29,7 +32,16 @@ export component StatusBar inherits Rectangle {
             horizontal-stretch: 1;
             spacing: Theme.spacing-sm;
 
-            VerticalLayout {
+            if root.busy : VerticalLayout {
+                alignment: center;
+                Spinner {
+                    width: 12px;
+                    height: 12px;
+                    indeterminate: true;
+                }
+            }
+
+            if !root.busy : VerticalLayout {
                 alignment: center;
                 Rectangle {
                     width: 8px;
@@ -40,7 +52,7 @@ export component StatusBar inherits Rectangle {
             }
 
             Text {
-                text: root.message;
+                text: root.busy ? "Loading data from WSLC…" : root.message;
                 color: Theme.text-muted;
                 font-size: Theme.font-caption;
                 vertical-alignment: center;

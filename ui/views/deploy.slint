@@ -1,0 +1,517 @@
+import { Theme, Icons } from "../theme.slint";
+import { ActionButton, Icon } from "../components/button.slint";
+import { PageHeader } from "../components/layout.slint";
+import { FormField, CheckOption, FormSection, Segment } from "../components/form.slint";
+import { DeployForm } from "../models.slint";
+import { Spinner, TextEdit } from "std-widgets.slint";
+
+// Dark, monospaced read-only output (plans, logs, translated commands).
+component OutputBox inherits Rectangle {
+    in property <string> text;
+    in property <bool> busy: false;
+
+    background: #00000040;
+    border-radius: Theme.radius-sm;
+    clip: true;
+
+    Flickable {
+        x: 10px;
+        y: 10px;
+        width: parent.width - 20px;
+        height: parent.height - 20px;
+        content-height: max(self.height, out-text.preferred-height);
+
+        out-text := Text {
+            y: 0px;
+            width: parent.width;
+            text: root.text;
+            vertical-alignment: top;
+            color: Theme.text-muted;
+            font-family: Theme.mono-font;
+            font-size: 12px;
+            wrap: word-wrap;
+        }
+    }
+
+    if root.busy : Spinner {
+        x: parent.width - self.width - 10px;
+        y: 10px;
+        width: 16px;
+        height: 16px;
+        indeterminate: true;
+    }
+}
+
+// "Add container", in the spirit of Portainer, with three methods:
+// a form (like `docker run`), a Docker Compose file, or a pasted docker run command.
+export component DeployView inherits Rectangle {
+    in property <string> initial-image;
+    in property <bool> busy: false;
+    in property <string> error;
+    in property <string> log;
+    // 0 = form, 1 = compose, 2 = docker run
+    in-out property <int> method: 0;
+    in-out property <string> compose-yaml;
+    in-out property <string> compose-project;
+    in property <string> compose-file;
+    in property <string> rcompose-path;
+    in property <bool> rcompose-installing: false;
+    in-out property <string> run-command;
+
+    callback deploy(DeployForm);
+    callback deploy-compose();
+    callback deploy-run();
+    callback open-compose-file();
+    callback install-rcompose();
+    callback cancel();
+    pure callback preview(DeployForm) -> string;
+    pure callback preview-compose(string, string, string) -> string;
+    pure callback preview-run(string) -> string;
+
+    property <DeployForm> form: {
+        name: name-field.text,
+        image: image-field.text,
+        command: command-field.text,
+        ports: ports-field.text,
+        env: env-field.text,
+        volumes: volumes-field.text,
+        network: network-field.text,
+        cpus: cpus-field.text,
+        memory: memory-field.text,
+        pull_always: pull-option.checked,
+        auto_remove: rm-option.checked,
+        tty: tty-option.checked,
+        start: start-option.checked,
+    };
+    // Two equal columns regardless of content
+    property <length> half-width: (self.width - 2 * 28px - Theme.spacing-md) / 2;
+    property <bool> can-deploy: !root.busy && (
+        root.method == 0 ? image-field.text != "" :
+        root.method == 1 ? root.compose-yaml != "" && root.rcompose-path != "" && !root.rcompose-installing :
+        root.run-command != "");
+
+    function submit() {
+        if !root.can-deploy { return; }
+        if root.method == 0 { root.deploy(root.form); }
+        else if root.method == 1 { root.deploy-compose(); }
+        else { root.deploy-run(); }
+    }
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: 28px;
+        padding-top: Theme.spacing-lg;
+        spacing: Theme.spacing-md;
+
+        PageHeader {
+            title: "Deploy container";
+            subtitle: root.method == 1 ? "Deploy a multi-container stack from a Compose file"
+                : root.method == 2 ? "Convert and run a docker run command"
+                : "Create and run a new container from an image";
+
+            ActionButton {
+                text: "Back";
+                icon: Icons.back;
+                variant: "ghost";
+                enabled: !root.busy;
+                clicked => { root.cancel(); }
+            }
+
+            ActionButton {
+                text: root.busy ? "Deploying…"
+                    : root.method == 1 ? "Deploy the stack"
+                    : root.method == 0 && !start-option.checked ? "Create the container"
+                    : "Deploy the container";
+                icon: Icons.play;
+                variant: "primary";
+                enabled: root.can-deploy;
+                clicked => { root.submit(); }
+            }
+        }
+
+        HorizontalLayout {
+            alignment: start;
+
+            Segment {
+                items: ["Form", "Compose", "docker run"];
+                icons: [Icons.document, Icons.stack, Icons.terminal];
+                enabled: !root.busy;
+                selected <=> root.method;
+            }
+        }
+
+        if root.error != "" : Rectangle {
+            background: Theme.status-danger-bg;
+            border-radius: Theme.radius-sm;
+            border-width: 1px;
+            border-color: Theme.status-danger.with-alpha(0.4);
+
+            HorizontalLayout {
+                padding: 12px;
+                spacing: 10px;
+
+                Icon {
+                    text: Icons.warning;
+                    color: Theme.status-danger;
+                    vertical-alignment: top;
+                }
+
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.error;
+                    color: Theme.status-danger;
+                    font-size: Theme.font-body;
+                    wrap: word-wrap;
+                }
+            }
+        }
+
+        // The panels are stacked (not in a layout) so each keeps its state
+        // while switching methods.
+        Rectangle {
+            vertical-stretch: 1;
+
+            // Form
+            Flickable {
+                width: parent.width;
+                height: parent.height;
+                visible: root.method == 0;
+
+                vertical-stretch: 1;
+
+                VerticalLayout {
+                    alignment: start;
+                    spacing: Theme.spacing-md;
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing-md;
+
+                        FormSection {
+                            width: root.half-width;
+                            title: "Image";
+                            icon: Icons.layers;
+
+                            name-field := FormField {
+                                label: "Name";
+                                placeholder: "e.g. my-web  (random if empty)";
+                                enabled: !root.busy;
+                            }
+
+                            image-field := FormField {
+                                label: "Image";
+                                required: true;
+                                text: root.initial-image;
+                                placeholder: "e.g. nginx:alpine";
+                                enabled: !root.busy;
+                                accepted => { root.submit(); }
+                            }
+
+                            pull-option := CheckOption {
+                                text: "Always pull the image";
+                                description: "Fetch the latest version even if the image exists locally.";
+                            }
+                        }
+
+                        FormSection {
+                            width: root.half-width;
+                            title: "Network & ports";
+                            icon: Icons.globe;
+
+                            ports-field := FormField {
+                                label: "Port mappings";
+                                multiline: true;
+                                mono: true;
+                                placeholder: "8080:80\n127.0.0.1:5432:5432/tcp";
+                                hint: "One per line: host:container[/tcp|udp]";
+                                enabled: !root.busy;
+                            }
+
+                            network-field := FormField {
+                                label: "Network";
+                                placeholder: "default";
+                                enabled: !root.busy;
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing-md;
+
+                        FormSection {
+                            width: root.half-width;
+                            title: "Environment";
+                            icon: Icons.code;
+
+                            env-field := FormField {
+                                label: "Environment variables";
+                                multiline: true;
+                                mono: true;
+                                placeholder: "POSTGRES_PASSWORD=secret\nTZ=America/Sao_Paulo";
+                                hint: "One KEY=value per line";
+                                enabled: !root.busy;
+                            }
+
+                            command-field := FormField {
+                                label: "Command";
+                                mono: true;
+                                placeholder: "Image default";
+                                enabled: !root.busy;
+                            }
+                        }
+
+                        FormSection {
+                            width: root.half-width;
+                            title: "Volumes";
+                            icon: Icons.drive;
+
+                            volumes-field := FormField {
+                                label: "Volume mappings";
+                                multiline: true;
+                                mono: true;
+                                placeholder: "pgdata:/var/lib/postgresql/data\nC:\\site:/usr/share/nginx/html:ro";
+                                hint: "One per line: volume-or-path:container-path[:ro]";
+                                enabled: !root.busy;
+                            }
+
+                            HorizontalLayout {
+                                spacing: 12px;
+
+                                cpus-field := FormField {
+                                    horizontal-stretch: 1;
+                                    label: "CPUs";
+                                    placeholder: "e.g. 1.5";
+                                    enabled: !root.busy;
+                                }
+
+                                memory-field := FormField {
+                                    horizontal-stretch: 1;
+                                    label: "Memory";
+                                    placeholder: "e.g. 512M";
+                                    enabled: !root.busy;
+                                }
+                            }
+                        }
+                    }
+
+                    FormSection {
+                        title: "Options";
+                        icon: Icons.info;
+
+                        HorizontalLayout {
+                            spacing: Theme.spacing-md;
+
+                            start-option := CheckOption {
+                                horizontal-stretch: 1;
+                                checked: true;
+                                text: "Start after creating";
+                                description: "Run in the background (detached).";
+                            }
+
+                            tty-option := CheckOption {
+                                horizontal-stretch: 1;
+                                text: "Interactive & TTY";
+                                description: "Keep stdin open (-i -t), e.g. for shells.";
+                            }
+
+                            rm-option := CheckOption {
+                                horizontal-stretch: 1;
+                                text: "Auto remove";
+                                description: "Delete the container when it stops.";
+                            }
+                        }
+                    }
+
+                    // Equivalent command line
+                    FormSection {
+                        title: "Command preview";
+                        icon: Icons.terminal;
+
+                        Rectangle {
+                            background: #00000040;
+                            border-radius: Theme.radius-sm;
+
+                            HorizontalLayout {
+                                padding: 10px;
+                                spacing: 10px;
+
+                                Text {
+                                    horizontal-stretch: 1;
+                                    text: root.preview(root.form);
+                                    color: Theme.text-muted;
+                                    font-family: Theme.mono-font;
+                                    font-size: 12px;
+                                    wrap: word-wrap;
+                                }
+
+                                if root.busy : Spinner {
+                                    width: 16px;
+                                    height: 16px;
+                                    indeterminate: true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Docker Compose
+            HorizontalLayout {
+                width: parent.width;
+                height: parent.height;
+                visible: root.method == 1;
+                spacing: Theme.spacing-md;
+
+                VerticalLayout {
+                    width: root.half-width * 1.2;
+                    spacing: Theme.spacing-sm;
+
+                    // Stacks are deployed with rcompose; offer to install it when missing
+                    if root.rcompose-path == "" : Rectangle {
+                        background: Theme.status-starting-bg;
+                        border-radius: Theme.radius-sm;
+                        border-width: 1px;
+                        border-color: Theme.status-starting.with-alpha(0.4);
+
+                        HorizontalLayout {
+                            padding: 10px;
+                            spacing: 10px;
+
+                            Icon {
+                                text: Icons.warning;
+                                color: Theme.status-starting;
+                            }
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                spacing: 2px;
+
+                                Text {
+                                    text: "rcompose is not installed";
+                                    color: Theme.text-main;
+                                    font-size: Theme.font-body;
+                                    font-weight: 600;
+                                }
+
+                                Text {
+                                    text: "Stacks are deployed with rcompose. It installs per user, no admin rights needed.";
+                                    color: Theme.text-muted;
+                                    font-size: Theme.font-caption;
+                                    wrap: word-wrap;
+                                }
+                            }
+
+                            VerticalLayout {
+                                alignment: center;
+
+                                ActionButton {
+                                    text: root.rcompose-installing ? "Installing…" : "Install rcompose";
+                                    icon: Icons.add;
+                                    variant: "primary";
+                                    busy: root.rcompose-installing;
+                                    clicked => { root.install-rcompose(); }
+                                }
+                            }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        spacing: Theme.spacing-sm;
+
+                        FormField {
+                            horizontal-stretch: 1;
+                            label: "Stack name";
+                            placeholder: "e.g. blog  (or a top-level name: in the file)";
+                            enabled: !root.busy;
+                            text <=> root.compose-project;
+                            accepted => { root.submit(); }
+                        }
+
+                        VerticalLayout {
+                            alignment: end;
+
+                            ActionButton {
+                                text: "Open file…";
+                                icon: Icons.document;
+                                enabled: !root.busy;
+                                clicked => { root.open-compose-file(); }
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: (root.compose-file != "" ? "File: " + root.compose-file
+                            : "Relative paths (./data, env_file) need the file opened from disk.")
+                            + (root.rcompose-path != "" ? "   ·   rcompose: " + root.rcompose-path : "");
+                        font-size: Theme.font-caption;
+                        color: Theme.text-dim;
+                        overflow: elide;
+                    }
+
+                    TextEdit {
+                        vertical-stretch: 1;
+                        text <=> root.compose-yaml;
+                        enabled: !root.busy;
+                        font-family: Theme.mono-font;
+                        font-size: 12px;
+                        wrap: no-wrap;
+                        placeholder-text: "services:\n  web:\n    image: nginx:alpine\n    ports:\n      - \"8080:80\"\n    depends_on: [db]\n  db:\n    image: postgres:16-alpine\n    environment:\n      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}\n    volumes:\n      - pgdata:/var/lib/postgresql/data\nvolumes:\n  pgdata:";
+                    }
+                }
+
+                FormSection {
+                    horizontal-stretch: 1;
+                    title: root.log != "" ? "Deploy log" : "Plan";
+                    icon: root.log != "" ? Icons.document : Icons.terminal;
+
+                    OutputBox {
+                        vertical-stretch: 1;
+                        busy: root.busy;
+                        text: root.log != "" ? root.log
+                            : root.compose-yaml == "" ? "Write or open a compose file to see the rcompose command that will run."
+                            : root.preview-compose(root.compose-yaml, root.compose-project, root.compose-file);
+                    }
+                }
+            }
+
+            // docker run
+            VerticalLayout {
+                width: parent.width;
+                height: parent.height;
+                visible: root.method == 2;
+                spacing: Theme.spacing-md;
+
+                FormSection {
+                    vertical-stretch: 0;
+                    title: "Command";
+                    icon: Icons.terminal;
+
+                    FormField {
+                        label: "docker run command";
+                        multiline: true;
+                        area-height: 120px;
+                        mono: true;
+                        enabled: !root.busy;
+                        text <=> root.run-command;
+                        placeholder: "docker run -d --name web -p 8080:80 \\\n  -e TZ=UTC -v html:/usr/share/nginx/html nginx:alpine";
+                        hint: "Paste a docker / podman run or create command. Line continuations (\\ ^ `) are fine.";
+                    }
+                }
+
+                FormSection {
+                    vertical-stretch: 1;
+                    title: "Translated to wslc";
+                    icon: Icons.code;
+
+                    OutputBox {
+                        vertical-stretch: 1;
+                        busy: root.busy;
+                        text: root.run-command == "" ? "The equivalent wslc command appears here."
+                            : root.preview-run(root.run-command);
+                    }
+                }
+            }
+        }
+    }
+}

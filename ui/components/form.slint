@@ -1,0 +1,249 @@
+import { Theme, Icons } from "../theme.slint";
+import { Icon } from "button.slint";
+
+// Labelled text field with a Fluent focus underline. `multiline` turns it into
+// a small text area (one entry per line); `hint` is shown under the field.
+export component FormField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> placeholder;
+    in property <string> hint;
+    in property <bool> required: false;
+    in property <bool> multiline: false;
+    in property <length> area-height: 84px;
+    in property <bool> mono: false;
+    in property <bool> enabled: true;
+    in-out property <string> text <=> input.text;
+    callback accepted();
+
+    spacing: Theme.spacing-xs;
+
+    HorizontalLayout {
+        spacing: 2px;
+        alignment: start;
+
+        Text {
+            text: root.label;
+            font-size: Theme.font-body;
+            font-weight: 600;
+            color: Theme.text-muted;
+        }
+
+        if root.required : Text {
+            text: "*";
+            font-size: Theme.font-body;
+            color: Theme.status-danger;
+        }
+    }
+
+    Rectangle {
+        height: root.multiline ? root.area-height : Theme.control-height;
+        border-radius: Theme.radius-sm;
+        background: input.has-focus ? #1f1f1f : Theme.surface;
+        border-width: 1px;
+        border-color: Theme.border;
+        clip: true;
+
+        // Clicking anywhere in the box (not just on text) focuses it
+        TouchArea {
+            mouse-cursor: MouseCursor.text;
+            clicked => { input.focus(); }
+        }
+
+        Rectangle {
+            y: parent.height - self.height;
+            height: input.has-focus ? 2px : 1px;
+            background: input.has-focus ? Theme.primary : #ffffff40;
+        }
+
+        input := TextInput {
+            x: 10px;
+            y: root.multiline ? 7px : 0px;
+            width: parent.width - 20px;
+            height: root.multiline ? parent.height - 14px : parent.height;
+            single-line: !root.multiline;
+            enabled: root.enabled;
+            color: Theme.text-main;
+            selection-background-color: Theme.primary;
+            selection-foreground-color: Theme.on-primary;
+            font-size: Theme.font-body;
+            font-family: root.mono ? Theme.mono-font : "";
+            vertical-alignment: root.multiline ? top : center;
+            accepted => { root.accepted(); }
+        }
+
+        if input.text == "" : Text {
+            x: 10px;
+            y: root.multiline ? 7px : 0px;
+            height: root.multiline ? self.preferred-height : parent.height;
+            text: root.placeholder;
+            color: Theme.text-dim;
+            font-size: Theme.font-body;
+            font-family: root.mono ? Theme.mono-font : "";
+            vertical-alignment: root.multiline ? top : center;
+        }
+    }
+
+    if root.hint != "" : Text {
+        text: root.hint;
+        font-size: Theme.font-caption;
+        color: Theme.text-dim;
+        wrap: word-wrap;
+    }
+}
+
+// Checkbox with a title and a muted description line.
+export component CheckOption inherits Rectangle {
+    in property <string> text;
+    in property <string> description;
+    in-out property <bool> checked: false;
+
+    min-height: 44px;
+    border-radius: Theme.radius-sm;
+    background: touch.has-hover ? #ffffff08 : transparent;
+
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.checked = !root.checked; }
+    }
+
+    HorizontalLayout {
+        padding: 6px;
+        spacing: 10px;
+
+        VerticalLayout {
+            alignment: start;
+            padding-top: 1px;
+
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: Theme.radius-sm;
+                background: root.checked ? Theme.primary : transparent;
+                border-width: root.checked ? 0px : 1px;
+                border-color: #ffffff80;
+
+                if root.checked : Icon {
+                    text: Icons.checkmark;
+                    font-size: 11px;
+                    color: Theme.on-primary;
+                }
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 2px;
+
+            Text {
+                text: root.text;
+                font-size: Theme.font-body;
+                color: Theme.text-main;
+            }
+
+            if root.description != "" : Text {
+                text: root.description;
+                font-size: Theme.font-caption;
+                color: Theme.text-dim;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+// Titled group of fields inside a card.
+export component FormSection inherits Rectangle {
+    in property <string> title;
+    in property <string> icon;
+
+    background: Theme.card;
+    border-radius: Theme.radius-md;
+    border-width: 1px;
+    border-color: Theme.border-light;
+
+    VerticalLayout {
+        padding: Theme.spacing-md;
+        spacing: 12px;
+
+        HorizontalLayout {
+            spacing: Theme.spacing-sm;
+            alignment: start;
+
+            Icon {
+                text: root.icon;
+                color: Theme.primary;
+            }
+
+            Text {
+                text: root.title;
+                font-size: Theme.font-body-strong;
+                font-weight: 600;
+                color: Theme.text-main;
+                vertical-alignment: center;
+            }
+        }
+
+        @children
+    }
+}
+
+// Segmented control (Fluent "pivot" look): one option selected at a time.
+export component Segment inherits Rectangle {
+    in property <[string]> items;
+    in property <[string]> icons;
+    in property <bool> enabled: true;
+    in-out property <int> selected: 0;
+
+    height: Theme.control-height + 4px;
+    border-radius: Theme.radius-sm + 2px;
+    background: Theme.surface;
+    border-width: 1px;
+    border-color: Theme.border-light;
+
+    HorizontalLayout {
+        padding: 2px;
+        spacing: 2px;
+
+        for item[i] in root.items : Rectangle {
+            border-radius: Theme.radius-sm;
+            background: root.selected == i ? Theme.surface-active.brighter(0.25)
+                : touch.has-hover && root.enabled ? Theme.surface-hover
+                : transparent;
+
+            touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: pointer;
+                clicked => { root.selected = i; }
+            }
+
+            // Selected indicator
+            if root.selected == i : Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: parent.height - self.height - 1px;
+                width: 16px;
+                height: 3px;
+                border-radius: 1.5px;
+                background: Theme.primary;
+            }
+
+            HorizontalLayout {
+                padding-left: 14px;
+                padding-right: 14px;
+                spacing: Theme.spacing-sm;
+
+                if i < root.icons.length : Icon {
+                    text: root.icons[i];
+                    font-size: 12px;
+                    color: root.selected == i ? Theme.primary : Theme.text-dim;
+                }
+
+                Text {
+                    text: item;
+                    font-size: Theme.font-body;
+                    font-weight: root.selected == i ? 600 : 400;
+                    color: root.selected == i ? Theme.text-main : Theme.text-muted;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}

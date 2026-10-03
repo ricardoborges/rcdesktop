@@ -1,18 +1,19 @@
 import { Theme, Icons } from "../theme.slint";
 import { ActionButton, IconButton, Icon } from "../components/button.slint";
-import { Card, PageHeader, EmptyState, LoadingState, ColumnHeader, Divider, TableRow, TableHeader, TextCell } from "../components/layout.slint";
-import { VolumeItem } from "../models.slint";
+import { Card, PageHeader, EmptyState, LoadingState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
+import { NetworkItem } from "../models.slint";
 
-export component VolumesView inherits Rectangle {
-    in property <[VolumeItem]> volumes;
+export component NetworksView inherits Rectangle {
+    in property <[NetworkItem]> networks;
     // True until the first fetch completes; refreshing while a user refresh runs
     in property <bool> loading: false;
     in property <bool> refreshing: false;
-    callback refresh-volumes();
-    callback remove-volume(string);
+    callback refresh-networks();
+    callback remove-network(string);
 
-    property <length> col-driver: 140px;
-    property <length> col-scope: 140px;
+    property <length> col-driver: 110px;
+    property <length> col-scope: 90px;
+    property <length> col-id: 120px;
     property <length> col-actions: Theme.control-height;
 
     background: Theme.background;
@@ -23,28 +24,28 @@ export component VolumesView inherits Rectangle {
         spacing: Theme.spacing-lg;
 
         PageHeader {
-            title: "Volumes";
-            subtitle: "Persistent storage volumes configured in WSLC";
+            title: "Networks";
+            subtitle: "Container networks managed by WSLC";
 
             ActionButton {
                 text: "Refresh";
                 icon: Icons.refresh;
                 busy: root.refreshing;
-                clicked => { root.refresh-volumes(); }
+                clicked => { root.refresh-networks(); }
             }
         }
 
-        if root.loading && root.volumes.length == 0 : LoadingState {
-            message: "Loading volumes…";
+        if root.loading && root.networks.length == 0 : LoadingState {
+            message: "Loading networks…";
         }
 
-        if !root.loading && root.volumes.length == 0 : EmptyState {
-            icon: Icons.drive;
-            title: "No volumes detected";
-            message: "Volumes created by containers will appear here.";
+        if !root.loading && root.networks.length == 0 : EmptyState {
+            icon: Icons.network;
+            title: "No networks found";
+            message: "Networks created by stacks or with wslc network create appear here.";
         }
 
-        if root.volumes.length > 0 : Card {
+        if root.networks.length > 0 : Card {
             vertical-stretch: 1;
 
             VerticalLayout {
@@ -52,6 +53,7 @@ export component VolumesView inherits Rectangle {
                     ColumnHeader { text: "NAME"; horizontal-stretch: 1; min-width: 100px; }
                     ColumnHeader { text: "DRIVER"; width: root.col-driver; }
                     ColumnHeader { text: "SCOPE"; width: root.col-scope; }
+                    ColumnHeader { text: "NETWORK ID"; width: root.col-id; }
                     ColumnHeader { text: "ACTIONS"; width: root.col-actions; horizontal-alignment: right; }
                 }
 
@@ -63,7 +65,7 @@ export component VolumesView inherits Rectangle {
                     VerticalLayout {
                         alignment: start;
 
-                        for vol in root.volumes : VerticalLayout {
+                        for net in root.networks : VerticalLayout {
                             TableRow {
                                 HorizontalLayout {
                                     horizontal-stretch: 1;
@@ -76,31 +78,40 @@ export component VolumesView inherits Rectangle {
                                             width: 32px;
                                             height: 32px;
                                             border-radius: Theme.radius-sm;
-                                            background: #ffffff0a;
+                                            background: net.stack != "" ? #60cdff1f : #ffffff0a;
 
                                             Icon {
-                                                text: Icons.drive;
-                                                color: Theme.text-muted;
+                                                text: Icons.network;
+                                                color: net.stack != "" ? Theme.primary : Theme.text-muted;
                                             }
                                         }
                                     }
 
-                                    TextCell {
-                                        horizontal-stretch: 1;
-                                        text: vol.name;
-                                        color: Theme.text-main;
-                                        font-weight: 600;
+                                    TwoLineCell {
+                                        min-width: 0px;
+                                        primary: net.name;
+                                        secondary: net.builtin ? "Built-in network"
+                                            : net.stack != "" ? "Stack  ·  " + net.stack
+                                            : "User-defined";
                                     }
                                 }
 
                                 TextCell {
                                     width: root.col-driver;
-                                    text: vol.driver;
+                                    text: net.driver != "" ? net.driver : "—";
                                 }
 
                                 TextCell {
                                     width: root.col-scope;
-                                    text: vol.scope;
+                                    text: net.scope != "" ? net.scope : "—";
+                                }
+
+                                TextCell {
+                                    width: root.col-id;
+                                    text: net.id;
+                                    font-family: Theme.mono-font;
+                                    font-size: 12px;
+                                    color: Theme.text-dim;
                                 }
 
                                 VerticalLayout {
@@ -109,11 +120,11 @@ export component VolumesView inherits Rectangle {
 
                                     IconButton {
                                         icon: Icons.delete;
-                                        tooltip: "Delete volume";
+                                        tooltip: net.builtin ? "Built-in networks can't be removed" : "Delete network";
                                         accent: Theme.action-delete;
-                                        busy: vol.pending == "Removing…";
-                                        enabled: vol.pending == "";
-                                        clicked => { root.remove-volume(vol.name); }
+                                        busy: net.pending == "Removing…";
+                                        enabled: !net.builtin && net.pending == "";
+                                        clicked => { root.remove-network(net.name); }
                                     }
                                 }
                             }

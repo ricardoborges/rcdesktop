@@ -8,11 +8,15 @@ use tokio::sync::{mpsc, oneshot};
 use async_trait::async_trait;
 
 use crate::domain::container::Container;
+use crate::domain::deploy::ContainerSpec;
 use crate::domain::image::ImageSummary;
 use crate::domain::session::WslcSessionInfo;
-use crate::domain::volume::VolumeSummary;
+use crate::domain::system::{PruneTarget, WslcSystemInfo};
+use crate::domain::volume::{NetworkSummary, VolumeSummary};
 use crate::wslc::client::WslcClient;
-use crate::wslc::parser::{parse_containers, parse_images, parse_version, parse_volumes};
+use crate::wslc::parser::{
+    parse_containers, parse_images, parse_networks, parse_system_info, parse_version, parse_volumes,
+};
 
 struct WslcRequest {
     args: Vec<String>,
@@ -158,12 +162,15 @@ async fn execute_serialized(
 #[derive(Clone)]
 pub struct RealWslcClient {
     queue: SingleLaneQueue,
+    // wslc version never changes while the app runs; fetched once
+    version: Arc<std::sync::OnceLock<String>>,
 }
 
 impl RealWslcClient {
     pub fn new() -> Self {
         Self {
             queue: SingleLaneQueue::new(),
+            version: Arc::new(std::sync::OnceLock::new()),
         }
     }
 }
@@ -207,6 +214,14 @@ impl WslcClient for RealWslcClient {
             .execute(vec!["rm".to_string(), id.to_string()], Duration::from_secs(30))
             .await?;
         Ok(())
+    }
+
+    async fn run_container(&self, spec: &ContainerSpec) -> Result<String, String> {
+        spec.validate()?;
+        // Long timeout: wslc pulls the image first when it is missing
+        let output = self.queue.execute(spec.to_args(), Duration::from_secs(600)).await?;
+        // The id is the last line; anything before it is pull progress
+        Ok(output.lines().map(str::trim).filter(|l| !l.is_empty()).last().unwrap_or_default().to_string())
     }
 
     async fn get_logs(&self, id: &str, tail: usize) -> Result<String, String> {
@@ -255,14 +270,80 @@ impl WslcClient for RealWslcClient {
         Ok(parse_volumes(&output))
     }
 
-    async fn get_session_info(&self) -> Result<WslcSessionInfo, String> {
-        let version_out = self
-            .queue
-            .execute(vec!["--version".to_string()], Duration::from_secs(15))
-            .await
-            .unwrap_or_else(|_| "wslc version unknown".to_string());
+    async fn list_networks(&self) -> Result<Vec<NetworkSummary>, String> {
+        // JSON carries the labels that tell which stack owns a network
+        let args = ["network", "list", "--format", "json"].map(String::from).to_vec();
+        let output = self.queue.execute(args, Duration::from_secs(30)).await?;
+        Ok(parse_networks(&output))
+    }
 
-        let version = parse_version(&version_out).unwrap_or_else(|| "5.0.1.1".to_string());
+    async fn remove_network(&self, name: &str) -> Result<(), String> {
+        let args = ["network", "remove", name].map(String::from).to_vec();
+        self.queue.execute(args, Duration::from_secs(60)).await?;
+        Ok(())
+    }
+
+    async fn create_network(&self, name: &str, labels: &[String]) -> Result<(), String> {
+        let mut args = vec!["network".to_string(), "create".to_string()];
+        for l in labels {
+            args.extend(["--label".to_string(), l.clone()]);
+        }
+        args.push(name.to_string());
+        self.queue.execute(args, Duration::from_secs(60)).await?;
+        Ok(())
+    }
+
+    async fn create_volume(&self, name: &str, labels: &[String]) -> Result<(), String> {
+        let mut args = vec!["volume".to_string(), "create".to_string()];
+        for l in labels {
+            args.extend(["--label".to_string(), l.clone()]);
+        }
+        args.push(name.to_string());
+        self.queue.execute(args, Duration::from_secs(60)).await?;
+        Ok(())
+    }
+
+    async fn remove_volume(&self, name: &str) -> Result<(), String> {
+        let args = ["volume", "remove", name].map(String::from).to_vec();
+        self.queue.execute(args, Duration::from_secs(60)).await?;
+        Ok(())
+    }
+
+    async fn system_info(&self) -> Result<WslcSystemInfo, String> {
+        let args = ["info", "--format", "json"].map(String::from).to_vec();
+        let output = self.queue.execute(args, Duration::from_secs(30)).await?;
+        parse_system_info(&output).ok_or_else(|| format!("Unexpected wslc info output:\n{}", output.trim()))
+    }
+
+    async fn prune(&self, target: PruneTarget) -> Result<String, String> {
+        self.queue.execute(target.args(), Duration::from_secs(300)).await
+    }
+
+    async fn open_settings(&self) -> Result<(), String> {
+        // Launches the editor and returns; not queued since it may stay open
+        std::process::Command::new(find_wslc_bin())
+            .arg("settings")
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("Cannot open wslc settings: {}", e))
+    }
+
+    async fn get_session_info(&self) -> Result<WslcSessionInfo, String> {
+        let version = match self.version.get() {
+            Some(v) => v.clone(),
+            None => {
+                let parsed = self
+                    .queue
+                    .execute(vec!["--version".to_string()], Duration::from_secs(15))
+                    .await
+                    .ok()
+                    .and_then(|out| parse_version(&out));
+                match parsed {
+                    Some(v) => self.version.get_or_init(|| v).clone(),
+                    None => "unknown".to_string(),
+                }
+            }
+        };
 
         Ok(WslcSessionInfo {
             session_id: "wslc-default".into(),

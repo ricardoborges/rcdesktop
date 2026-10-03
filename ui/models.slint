@@ -1,10 +1,16 @@
+// Published port; `url` is empty when it can't be opened in a browser (udp).
+export struct PortLink {
+    label: string,
+    url: string,
+}
+
 export struct ContainerItem {
     id: string,
     name: string,
     image: string,
     status: string,
     state: string,
-    ports: string,
+    ports: [PortLink],
     stack: string,
     // In-flight lifecycle label ("Starting…", "Stopping…"); empty when idle
     pending: string,
@@ -26,12 +32,40 @@ export struct ImageItem {
     tag: string,
     size: string,
     created: string,
+    // In-flight action label ("Removing…"); empty when idle
+    pending: string,
 }
 
 export struct VolumeItem {
     name: string,
     driver: string,
     scope: string,
+    // In-flight action label ("Removing…"); empty when idle
+    pending: string,
+}
+
+export struct NetworkItem {
+    id: string,
+    name: string,
+    driver: string,
+    scope: string,
+    // Compose project that created it; empty for user-defined networks
+    stack: string,
+    // bridge, host and none can't be removed
+    builtin: bool,
+    pending: string,
+}
+
+// `wslc info`, flattened for display
+export struct WslcInfoItem {
+    version: string,
+    session-manager: string,
+    sessions: string,
+    kernel: string,
+    windows: string,
+    direct3d: string,
+    dxcore: string,
+    settings-file: string,
 }
 
 export struct SessionInfoItem {
@@ -40,4 +74,21 @@ export struct SessionInfoItem {
     is_healthy: bool,
     status_message: string,
     version: string,
+}
+
+// Fields of the "Deploy container" form. Multi-line fields hold one entry per line.
+export struct DeployForm {
+    name: string,
+    image: string,
+    command: string,
+    ports: string,
+    env: string,
+    volumes: string,
+    network: string,
+    cpus: string,
+    memory: string,
+    pull_always: bool,
+    auto_remove: bool,
+    tty: bool,
+    start: bool,
 }

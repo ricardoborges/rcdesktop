@@ -8,18 +8,30 @@ It's early and built for my own use, so expect rough edges.
 
 ## What it does
 
-- Lists containers, with compose projects grouped into stacks you can start/stop at once
+- Lists containers, with compose projects grouped into stacks you can start/stop at once, or remove like `compose down` (containers and networks go, volumes stay)
 - Start, stop, restart and remove containers; view logs and `inspect` output
+- Deploys new containers, Portainer-style, in three ways:
+  - **Form**: name, image, ports, env vars, volumes, network, CPU/memory limits and run options, with a preview of the equivalent `wslc run`. Images have a "Run" button that opens it prefilled
+  - **Compose**: paste or open a `docker-compose.yml` and it's deployed with [rcompose](https://github.com/ricardoborges/rcompose) (`rcompose up -d`), with its output streamed into the app. wslc has no compose command of its own; rcompose ships with RC Desktop, and if it's missing the app offers to install it (per user, checksum verified, no admin rights)
+  - **docker run**: paste a `docker run …` command and it's converted to `wslc run`
 - Opens a shell in a container through Windows Terminal
-- Lists, pulls and removes images; lists volumes
+- Lists, pulls and removes images; lists and deletes volumes and networks
+- Published ports are links that open `http://localhost:<port>` in your browser
+- A WSLC page with the runtime versions and sessions (`wslc info`), one-click cleanup (`container`/`image`/`network`/`volume prune`), a shortcut to the wslc settings file and links to the docs
 - Shows the WSL session state and warns you if the app is running elevated
 - Sits in the system tray, with a shortcut to `wsl --shutdown` when things get stuck
 
 One detail worth knowing: wslc doesn't like being called concurrently. Two calls at the same time can fail with `ERROR_SHARING_VIOLATION` (0x80070020). The app runs every command through a single queue and retries with backoff when that happens.
 
-## Running it
+## Installing
 
-You need Windows 11 with wslc installed and a recent Rust toolchain (1.80+).
+Grab `rcdesktop-x86_64-pc-windows-msvc.zip` (or the `aarch64` one for ARM) from the [releases page](https://github.com/ricardoborges/rcdesktop/releases), unzip it anywhere and run `rcdesktop.exe`. The zip includes `rcompose.exe`, which the app uses to deploy Compose stacks; keep them in the same folder.
+
+You need Windows 11 with the WSL container preview (`wslc.exe`) installed.
+
+## Building from source
+
+You need a recent Rust toolchain (1.80+).
 
 ```powershell
 cargo run --release
@@ -43,7 +55,8 @@ cargo test
 
 - `ui/` – Slint files: the main window, theme, components and one file per view
 - `src/wslc/` – everything that talks to `wslc.exe`: the command queue, output parsing and the mock client
-- `src/domain/` – plain types for containers, images, volumes and the session
+- `src/domain/` – plain types for containers, images, volumes, networks and the session
+- `src/rcompose.rs` – finding, installing and running rcompose for Compose stacks
 - `src/app.rs` – glue between the Tokio worker and the Slint event loop
 - `src/tray.rs` – system tray icon
 

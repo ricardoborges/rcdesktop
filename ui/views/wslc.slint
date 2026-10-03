@@ -1,0 +1,345 @@
+import { Theme, Icons } from "../theme.slint";
+import { ActionButton, Icon } from "../components/button.slint";
+import { Card, PageHeader, Divider } from "../components/layout.slint";
+import { WslcInfoItem } from "../models.slint";
+
+// Card with a bold caption above its rows.
+component Section inherits Card {
+    in property <string> title;
+    in property <string> icon;
+
+    VerticalLayout {
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: Theme.spacing-md;
+        padding-bottom: Theme.spacing-sm;
+
+        HorizontalLayout {
+            height: 32px;
+            spacing: 10px;
+
+            Icon {
+                width: 18px;
+                text: root.icon;
+                color: Theme.primary;
+            }
+
+            Text {
+                text: root.title;
+                font-size: Theme.font-body-strong;
+                font-weight: 600;
+                color: Theme.text-main;
+                vertical-alignment: center;
+            }
+        }
+
+        @children
+    }
+}
+
+// "Label ............ value" line in the version card.
+component InfoRow inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <bool> mono: false;
+    in property <bool> last: false;
+
+    HorizontalLayout {
+        padding-top: 8px;
+        padding-bottom: 8px;
+        spacing: Theme.spacing-md;
+
+        Text {
+            width: 150px;
+            text: root.label;
+            font-size: Theme.font-body;
+            color: Theme.text-muted;
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.value != "" ? root.value : "—";
+            font-size: root.mono ? 12px : Theme.font-body;
+            font-family: root.mono ? Theme.mono-font : "Segoe UI";
+            color: Theme.text-main;
+            overflow: elide;
+        }
+    }
+
+    if !root.last : Divider {}
+}
+
+// One cleanup action: what it removes, and a button that runs it.
+component PruneRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    in property <string> button-text: "Clean up";
+    in property <bool> busy: false;
+    in property <bool> enabled: true;
+    in property <bool> last: false;
+    callback run();
+
+    HorizontalLayout {
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: Theme.spacing-md;
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 2px;
+
+            Text {
+                text: root.title;
+                font-size: Theme.font-body;
+                font-weight: 600;
+                color: Theme.text-main;
+            }
+
+            Text {
+                text: root.description;
+                font-size: Theme.font-caption;
+                color: Theme.text-dim;
+                wrap: word-wrap;
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+
+            ActionButton {
+                text: root.busy ? "Cleaning…" : root.button-text;
+                icon: Icons.delete;
+                busy: root.busy;
+                enabled: root.enabled;
+                clicked => { root.run(); }
+            }
+        }
+    }
+
+    if !root.last : Divider {}
+}
+
+// External link with an arrow, opens in the default browser.
+component LinkRow inherits VerticalLayout {
+    in property <string> title;
+    in property <string> description;
+    in property <string> url;
+    in property <bool> last: false;
+    callback open-url(string);
+
+    Rectangle {
+        background: touch.has-hover ? Theme.row-hover : transparent;
+        border-radius: Theme.radius-sm;
+
+        touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.open-url(root.url); }
+        }
+
+        HorizontalLayout {
+            padding-top: 10px;
+            padding-bottom: 10px;
+            spacing: Theme.spacing-md;
+
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                spacing: 2px;
+
+                Text {
+                    text: root.title;
+                    font-size: Theme.font-body;
+                    font-weight: 600;
+                    color: touch.has-hover ? Theme.primary-hover : Theme.primary;
+                }
+
+                Text {
+                    text: root.description;
+                    font-size: Theme.font-caption;
+                    color: Theme.text-dim;
+                    overflow: elide;
+                }
+            }
+
+            Icon {
+                width: 16px;
+                text: Icons.open-external;
+                font-size: 12px;
+                color: Theme.text-muted;
+            }
+        }
+    }
+
+    if !root.last : Divider {}
+}
+
+export component WslcView inherits Rectangle {
+    in property <WslcInfoItem> info;
+    in property <bool> info-loading: false;
+    in property <string> rcompose-path;
+    // Key of the prune being run ("containers", "images", ...); empty when idle
+    in property <string> prune-pending;
+    in property <string> prune-output;
+    callback refresh-info();
+    callback open-settings();
+    callback prune(string);
+    callback open-url(string);
+
+    background: Theme.background;
+
+    VerticalLayout {
+        padding: 28px;
+        padding-top: Theme.spacing-lg;
+        spacing: Theme.spacing-lg;
+
+        PageHeader {
+            title: "WSLC";
+            subtitle: "Runtime versions, cleanup and documentation";
+
+            ActionButton {
+                text: "Open settings";
+                icon: Icons.settings;
+                clicked => { root.open-settings(); }
+            }
+
+            ActionButton {
+                text: "Refresh";
+                icon: Icons.refresh;
+                busy: root.info-loading;
+                clicked => { root.refresh-info(); }
+            }
+        }
+
+        Flickable {
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                alignment: start;
+                spacing: Theme.spacing-md;
+
+                HorizontalLayout {
+                    spacing: Theme.spacing-md;
+
+                    Section {
+                        horizontal-stretch: 1;
+                        title: "Version";
+                        icon: Icons.info;
+
+                        InfoRow { label: "wslc"; value: root.info.version; }
+                        InfoRow { label: "Session manager"; value: root.info.session-manager; }
+                        InfoRow { label: "Sessions"; value: root.info.sessions; }
+                        InfoRow { label: "Linux kernel"; value: root.info.kernel; }
+                        InfoRow { label: "Windows"; value: root.info.windows; }
+                        InfoRow { label: "Direct3D / DXCore"; value: root.info.direct3d + "  ·  " + root.info.dxcore; }
+                        InfoRow { label: "Settings file"; value: root.info.settings-file; mono: true; }
+                        InfoRow { label: "rcompose"; value: root.rcompose-path != "" ? root.rcompose-path : "Not installed"; mono: true; last: true; }
+                    }
+
+                    Section {
+                        width: 340px;
+                        title: "Resources";
+                        icon: Icons.document;
+
+                        LinkRow {
+                            title: "WSL documentation";
+                            description: "learn.microsoft.com/windows/wsl";
+                            url: "https://learn.microsoft.com/windows/wsl/";
+                            open-url(u) => { root.open-url(u); }
+                        }
+                        LinkRow {
+                            title: "WSL on GitHub";
+                            description: "Releases, issues and release notes";
+                            url: "https://github.com/microsoft/WSL";
+                            open-url(u) => { root.open-url(u); }
+                        }
+                        LinkRow {
+                            title: "rcompose";
+                            description: "Compose for WSL containers, used for stacks";
+                            url: "https://github.com/ricardoborges/rcompose";
+                            open-url(u) => { root.open-url(u); }
+                        }
+                        LinkRow {
+                            title: "RC Desktop";
+                            description: "Source code and issues";
+                            url: "https://github.com/ricardoborges/rcdesktop";
+                            last: true;
+                            open-url(u) => { root.open-url(u); }
+                        }
+                    }
+                }
+
+                Section {
+                    title: "Cleanup";
+                    icon: Icons.delete;
+
+                    PruneRow {
+                        title: "Stopped containers";
+                        description: "Removes every container that isn't running.  wslc container prune";
+                        busy: root.prune-pending == "containers";
+                        enabled: root.prune-pending == "";
+                        run => { root.prune("containers"); }
+                    }
+                    PruneRow {
+                        title: "Dangling images";
+                        description: "Removes untagged image layers left by rebuilds and pulls.  wslc image prune";
+                        busy: root.prune-pending == "images";
+                        enabled: root.prune-pending == "";
+                        run => { root.prune("images"); }
+                    }
+                    PruneRow {
+                        title: "All unused images";
+                        description: "Removes every image no container uses; they'll be pulled again when needed.  wslc image prune -a";
+                        busy: root.prune-pending == "images-all";
+                        enabled: root.prune-pending == "";
+                        run => { root.prune("images-all"); }
+                    }
+                    PruneRow {
+                        title: "Unused networks";
+                        description: "Removes networks no container is connected to.  wslc network prune";
+                        busy: root.prune-pending == "networks";
+                        enabled: root.prune-pending == "";
+                        run => { root.prune("networks"); }
+                    }
+                    PruneRow {
+                        title: "Unused volumes";
+                        description: "Deletes every volume no container references, with its data.  wslc volume prune -a";
+                        busy: root.prune-pending == "volumes";
+                        enabled: root.prune-pending == "";
+                        last: root.prune-output == "";
+                        run => { root.prune("volumes"); }
+                    }
+
+                    if root.prune-output != "" : Rectangle {
+                        background: Theme.background;
+                        border-radius: Theme.radius-sm;
+                        border-width: 1px;
+                        border-color: Theme.border-light;
+
+                        VerticalLayout {
+                            padding: 12px;
+                            spacing: 4px;
+
+                            Text {
+                                text: "Last cleanup";
+                                font-size: Theme.font-caption;
+                                font-weight: 600;
+                                color: Theme.text-dim;
+                            }
+
+                            Text {
+                                text: root.prune-output;
+                                font-family: Theme.mono-font;
+                                font-size: 12px;
+                                color: Theme.text-muted;
+                                wrap: word-wrap;
+                            }
+                        }
+                    }
+
+                    Rectangle { height: Theme.spacing-sm; }
+                }
+            }
+        }
+    }
+}

@@ -102,6 +102,7 @@ export component DashboardView inherits Rectangle {
     in property <int> total-containers: 0;
     in property <int> total-images: 0;
     in property <int> total-volumes: 0;
+    in property <bool> refreshing: false;
     callback restart-wsl();
     callback refresh-all();
 
@@ -119,6 +120,7 @@ export component DashboardView inherits Rectangle {
             ActionButton {
                 text: "Refresh";
                 icon: Icons.refresh;
+                busy: root.refreshing;
                 clicked => { root.refresh-all(); }
             }
 

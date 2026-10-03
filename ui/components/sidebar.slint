@@ -83,6 +83,7 @@ export component Sidebar inherits Rectangle {
     in property <int> container-count: 0;
     in property <int> image-count: 0;
     in property <int> volume-count: 0;
+    in property <int> network-count: 0;
     callback tab-selected(int);
 
     width: 220px;
@@ -156,7 +157,7 @@ export component Sidebar inherits Rectangle {
         NavItem {
             text: "Containers";
             icon: Icons.package;
-            active: root.active-tab == 1;
+            active: root.active-tab == 1 || root.active-tab == 5;
             badge-count: root.container-count;
             clicked => { root.tab-selected(1); }
         }
@@ -177,7 +178,22 @@ export component Sidebar inherits Rectangle {
             clicked => { root.tab-selected(3); }
         }
 
+        NavItem {
+            text: "Networks";
+            icon: Icons.network;
+            active: root.active-tab == 6;
+            badge-count: root.network-count;
+            clicked => { root.tab-selected(6); }
+        }
+
         Rectangle { vertical-stretch: 1; }
+
+        NavItem {
+            text: "WSLC";
+            icon: Icons.settings;
+            active: root.active-tab == 7;
+            clicked => { root.tab-selected(7); }
+        }
 
         NavItem {
             text: "Diagnostics";

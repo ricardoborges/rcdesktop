@@ -1,18 +1,22 @@
 import { Theme, Icons } from "../theme.slint";
 import { ActionButton, IconButton, Icon } from "../components/button.slint";
-import { Card, PageHeader, EmptyState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
+import { Card, PageHeader, EmptyState, LoadingState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
 import { ImageItem } from "../models.slint";
 
 export component ImagesView inherits Rectangle {
     in property <[ImageItem]> images;
+    // True until the first fetch completes; refreshing while a user refresh runs
+    in property <bool> loading: false;
+    in property <bool> refreshing: false;
     callback pull-image(string);
     callback remove-image(string);
     callback refresh-images();
+    callback run-image(string);
 
     property <length> col-id: 120px;
     property <length> col-size: 90px;
     property <length> col-created: 110px;
-    property <length> col-actions: Theme.control-height;
+    property <length> col-actions: 2 * Theme.control-height + 2px;
 
     background: Theme.background;
 
@@ -28,6 +32,7 @@ export component ImagesView inherits Rectangle {
             ActionButton {
                 text: "Refresh";
                 icon: Icons.refresh;
+                busy: root.refreshing;
                 clicked => { root.refresh-images(); }
             }
         }
@@ -101,7 +106,11 @@ export component ImagesView inherits Rectangle {
             }
         }
 
-        if root.images.length == 0 : EmptyState {
+        if root.loading && root.images.length == 0 : LoadingState {
+            message: "Loading images…";
+        }
+
+        if !root.loading && root.images.length == 0 : EmptyState {
             icon: Icons.layers;
             title: "No images available";
             message: "Use the pull field above to fetch container images.";
@@ -175,13 +184,28 @@ export component ImagesView inherits Rectangle {
                                 }
 
                                 VerticalLayout {
+                                    width: root.col-actions;
                                     alignment: center;
 
-                                    IconButton {
-                                        icon: Icons.delete;
-                                        tooltip: "Delete image";
-                                        accent: Theme.action-delete;
-                                        clicked => { root.remove-image(img.id); }
+                                    HorizontalLayout {
+                                        spacing: 2px;
+
+                                        IconButton {
+                                            icon: Icons.play;
+                                            tooltip: "Run container";
+                                            accent: Theme.action-start;
+                                            enabled: img.pending == "";
+                                            clicked => { root.run-image(img.tag == "" || img.tag == "<none>" ? img.repository : img.repository + ":" + img.tag); }
+                                        }
+
+                                        IconButton {
+                                            icon: Icons.delete;
+                                            tooltip: "Delete image";
+                                            accent: Theme.action-delete;
+                                            busy: img.pending == "Removing…";
+                                            enabled: img.pending == "";
+                                            clicked => { root.remove-image(img.id); }
+                                        }
                                     }
                                 }
                             }

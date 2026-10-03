@@ -1,16 +1,48 @@
 import { Theme, Icons } from "../theme.slint";
 import { ActionButton, IconButton, Icon } from "../components/button.slint";
 import { StatusBadge } from "../components/badge.slint";
-import { Card, PageHeader, EmptyState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
-import { ContainerItem, StackItem } from "../models.slint";
+import { Card, PageHeader, EmptyState, LoadingState, ColumnHeader, Divider, TableRow, TableHeader, TwoLineCell, TextCell } from "../components/layout.slint";
+import { ContainerItem, StackItem, PortLink } from "../models.slint";
 
 // Shared column widths keep header, stack and container rows aligned
 global Columns {
     out property <length> name-min: 100px;
-    out property <length> status: 110px;
+    out property <length> status: 180px;
     out property <length> ports-min: 110px;
     out property <length> actions: 6 * Theme.control-height + 5 * 2px;
     out property <length> indent: 28px;
+}
+
+// Host port mapping; opens http://localhost:<port> when clicked.
+component PortLinkCell inherits Rectangle {
+    in property <PortLink> port;
+    in property <bool> last: true;
+    callback open-url(string);
+    property <bool> clickable: root.port.url != "";
+
+    min-width: label.preferred-width;
+
+    touch := TouchArea {
+        enabled: root.clickable;
+        mouse-cursor: root.clickable ? pointer : default;
+        clicked => { root.open-url(root.port.url); }
+    }
+
+    label := TextCell {
+        width: 100%;
+        text: root.port.label + (root.last ? "" : ",");
+        color: !root.clickable ? Theme.text-muted :
+               touch.pressed ? Theme.primary-pressed :
+               touch.has-hover ? Theme.primary-hover : Theme.primary;
+    }
+
+    // Underline on hover, like a hyperlink
+    Rectangle {
+        visible: root.clickable && touch.has-hover;
+        y: parent.height / 2 + 8px;
+        height: 1px;
+        background: label.color;
+    }
 }
 
 component ContainerRow inherits VerticalLayout {
@@ -24,6 +56,7 @@ component ContainerRow inherits VerticalLayout {
     callback view-logs(string);
     callback inspect-container(string);
     callback open-terminal(string);
+    callback open-url(string);
 
     TableRow {
         HorizontalLayout {
@@ -56,22 +89,32 @@ component ContainerRow inherits VerticalLayout {
             state: root.busy ? "Starting" : root.item.state;
         }
 
-        HorizontalLayout {
+        Rectangle {
             horizontal-stretch: 1;
             min-width: Columns.ports-min;
             preferred-width: Columns.ports-min;
-            spacing: 6px;
+            clip: true;
 
-            if root.item.ports != "" : Icon {
-                text: Icons.globe;
-                font-size: 12px;
-                color: Theme.primary;
-            }
+            HorizontalLayout {
+                spacing: 6px;
+                alignment: start;
 
-            TextCell {
-                horizontal-stretch: 1;
-                text: root.item.ports != "" ? root.item.ports : "—";
-                color: root.item.ports != "" ? Theme.primary : Theme.text-dim;
+                if root.item.ports.length > 0 : Icon {
+                    text: Icons.globe;
+                    font-size: 12px;
+                    color: Theme.primary;
+                }
+
+                for p[i] in root.item.ports : PortLinkCell {
+                    port: p;
+                    last: i == root.item.ports.length - 1;
+                    open-url(url) => { root.open-url(url); }
+                }
+
+                if root.item.ports.length == 0 : TextCell {
+                    text: "—";
+                    color: Theme.text-dim;
+                }
             }
         }
 
@@ -148,6 +191,7 @@ component StackRow inherits VerticalLayout {
     callback toggle();
     callback start();
     callback stop();
+    callback remove();
 
     Rectangle {
         height: Theme.row-height;
@@ -238,6 +282,15 @@ component StackRow inherits VerticalLayout {
                         enabled: root.stack.pending == "";
                         clicked => { root.stop(); }
                     }
+
+                    IconButton {
+                        icon: Icons.delete;
+                        tooltip: "Remove stack";
+                        accent: Theme.action-delete;
+                        busy: root.stack.pending == "Removing…";
+                        enabled: root.stack.pending == "";
+                        clicked => { root.remove(); }
+                    }
                 }
             }
         }
@@ -248,6 +301,9 @@ component StackRow inherits VerticalLayout {
 
 export component ContainersView inherits Rectangle {
     in property <[StackItem]> stacks;
+    // True until the first fetch completes; refreshing while a user refresh runs
+    in property <bool> loading: false;
+    in property <bool> refreshing: false;
     in property <[ContainerItem]> standalone;
     callback start-container(string);
     callback stop-container(string);
@@ -256,10 +312,13 @@ export component ContainersView inherits Rectangle {
     callback view-logs(string);
     callback inspect-container(string);
     callback open-terminal(string);
+    callback open-url(string);
     callback start-stack(string);
     callback stop-stack(string);
     callback toggle-stack(string);
+    callback remove-stack(string);
     callback refresh-containers();
+    callback add-container();
 
     property <bool> empty: root.stacks.length == 0 && root.standalone.length == 0;
 
@@ -277,14 +336,26 @@ export component ContainersView inherits Rectangle {
             ActionButton {
                 text: "Refresh";
                 icon: Icons.refresh;
+                busy: root.refreshing;
                 clicked => { root.refresh-containers(); }
+            }
+
+            ActionButton {
+                text: "Add container";
+                icon: Icons.add;
+                variant: "primary";
+                clicked => { root.add-container(); }
             }
         }
 
-        if root.empty : EmptyState {
+        if root.loading && root.empty : LoadingState {
+            message: "Loading containers…";
+        }
+
+        if !root.loading && root.empty : EmptyState {
             icon: Icons.package;
             title: "No containers found";
-            message: "Pull and run an image to get started with WSLC.";
+            message: "Use \"Add container\" to deploy one from an image.";
         }
 
         if !root.empty : Card {
@@ -312,6 +383,7 @@ export component ContainersView inherits Rectangle {
                                 toggle => { root.toggle-stack(s.name); }
                                 start => { root.start-stack(s.name); }
                                 stop => { root.stop-stack(s.name); }
+                                remove => { root.remove-stack(s.name); }
                             }
 
                             if !s.collapsed : VerticalLayout {
@@ -325,6 +397,7 @@ export component ContainersView inherits Rectangle {
                                     view-logs(id) => { root.view-logs(id); }
                                     inspect-container(id) => { root.inspect-container(id); }
                                     open-terminal(id) => { root.open-terminal(id); }
+                                    open-url(url) => { root.open-url(url); }
                                 }
                             }
                         }
@@ -338,6 +411,7 @@ export component ContainersView inherits Rectangle {
                             view-logs(id) => { root.view-logs(id); }
                             inspect-container(id) => { root.inspect-container(id); }
                             open-terminal(id) => { root.open-terminal(id); }
+                            open-url(url) => { root.open-url(url); }
                         }
                     }
                 }
