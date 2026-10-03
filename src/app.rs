@@ -9,6 +9,7 @@ use crate::domain::container::ContainerState;
 use crate::domain::compose::{load_env, parse_compose, ComposeProject};
 use crate::domain::deploy::{parse_lines, parse_run_command, quote_args, ContainerSpec};
 use crate::rcompose;
+use crate::CREATE_NO_WINDOW;
 use crate::{settings, tray};
 use crate::wslc::client::WslcClient;
 use crate::wslc::stack::{deploy_project as deploy_stack, remove_project};
@@ -643,6 +644,7 @@ impl AppController {
                 tokio::spawn(async move {
                     let _ = tokio::process::Command::new("wsl")
                         .arg("--shutdown")
+                        .creation_flags(CREATE_NO_WINDOW)
                         .output()
                         .await;
                     tokio::time::sleep(Duration::from_millis(1500)).await;

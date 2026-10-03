@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::os::windows::process::CommandExt;
 
 use slint::ComponentHandle;
 use tray_icon::{
@@ -63,7 +64,10 @@ pub fn install(window: &MainWindow) -> Result<(), Box<dyn std::error::Error>> {
                 sync_autostart_item();
             });
         } else if event.id == restart_id {
-            let _ = std::process::Command::new("wsl").arg("--shutdown").spawn();
+            let _ = std::process::Command::new("wsl")
+                .arg("--shutdown")
+                .creation_flags(crate::CREATE_NO_WINDOW)
+                .spawn();
         } else if event.id == quit_id {
             let _ = slint::invoke_from_event_loop(|| {
                 let _ = slint::quit_event_loop();

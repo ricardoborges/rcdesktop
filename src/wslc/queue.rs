@@ -14,6 +14,7 @@ use crate::domain::session::WslcSessionInfo;
 use crate::domain::system::{PruneTarget, WslcSystemInfo};
 use crate::domain::volume::{NetworkSummary, VolumeSummary};
 use crate::wslc::client::WslcClient;
+use crate::CREATE_NO_WINDOW;
 use crate::wslc::parser::{
     parse_containers, parse_images, parse_networks, parse_system_info, parse_version, parse_volumes,
 };
@@ -118,7 +119,9 @@ async fn execute_serialized(
             c
         };
 
-        cmd.stdout(Stdio::piped()).stderr(Stdio::piped());
+        cmd.stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .creation_flags(CREATE_NO_WINDOW);
 
         let run_future = async {
             let output = cmd.output().await.map_err(|e| format!("Process exec failed: {}", e))?;

@@ -14,8 +14,7 @@ use tokio::process::Command;
 
 const EXE: &str = "rcompose.exe";
 const INSTALL_SCRIPT: &str = include_str!("rcompose_install.ps1");
-// Keeps rcompose/powershell from flashing a console window
-const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+use crate::CREATE_NO_WINDOW;
 
 /// Per-user install folder, same as the official installer.
 pub fn install_dir() -> Option<PathBuf> {

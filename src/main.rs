@@ -1,3 +1,6 @@
+// GUI subsystem: no console window in release builds (debug keeps it for logs)
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use std::sync::Arc;
 use slint::{CloseRequestResponse, ComponentHandle};
 use rcdesktop::app::AppController;
