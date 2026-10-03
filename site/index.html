@@ -1,0 +1,244 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RC Desktop</title>
+<meta name="description" content="A small, fast Windows app for managing WSL Containers (wslc.exe). Rust + Slint, no Electron.">
+<link rel="icon" type="image/png" href="icon.png">
+<meta property="og:title" content="RC Desktop">
+<meta property="og:description" content="A small, fast Windows app for managing WSL Containers (wslc.exe).">
+<meta property="og:image" content="dashboard.png">
+<style>
+  :root {
+    --bg: #1a1a1a;
+    --surface: #252525;
+    --border: #353535;
+    --text: #f0f0f0;
+    --muted: #9a9a9a;
+    --accent: #4cc2ff;
+    --accent-strong: #2b9be0;
+    --green: #6ccb5f;
+    --code-bg: #111;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 "Segoe UI Variable", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+  header.nav { border-bottom: 1px solid var(--border); }
+  header.nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 60px; gap: 16px; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--text); font-weight: 600; }
+  .brand img { width: 28px; height: 28px; }
+  .brand:hover { text-decoration: none; }
+  nav a { color: var(--muted); margin-left: 20px; font-size: 15px; }
+  nav a:hover { color: var(--text); text-decoration: none; }
+
+  .hero { padding: 72px 0 40px; text-align: center; }
+  .hero h1 { font-size: clamp(32px, 6vw, 52px); line-height: 1.1; margin: 0 0 16px; letter-spacing: -0.02em; }
+  .hero p.lead { color: var(--muted); font-size: clamp(17px, 2.4vw, 20px); max-width: 640px; margin: 0 auto 32px; }
+  .cta { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 11px 20px; border-radius: 6px; font-weight: 600; font-size: 15px;
+    border: 1px solid var(--border); color: var(--text); background: var(--surface);
+  }
+  .btn:hover { text-decoration: none; border-color: #4a4a4a; }
+  .btn.primary { background: var(--accent-strong); border-color: var(--accent-strong); color: #fff; }
+  .btn.primary:hover { background: #3aa8ec; }
+  .meta { color: var(--muted); font-size: 14px; margin-top: 16px; }
+
+  .shot { margin: 40px auto 0; max-width: 1000px; }
+  .shot img {
+    width: 100%; height: auto; display: block; border-radius: 10px;
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  }
+
+  section { padding: 64px 0; }
+  section h2 { font-size: 28px; margin: 0 0 8px; letter-spacing: -0.01em; }
+  section .sub { color: var(--muted); margin: 0 0 32px; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 20px; }
+  .card h3 { margin: 0 0 6px; font-size: 17px; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .note {
+    border-left: 3px solid var(--accent); background: var(--surface);
+    padding: 16px 20px; border-radius: 0 8px 8px 0; color: var(--muted); font-size: 15px;
+  }
+  .note code, p code, li code { color: var(--text); }
+  code { font-family: "Cascadia Code", Consolas, monospace; font-size: .92em; }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 16px; overflow-x: auto; margin: 12px 0 0;
+  }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+  .steps h3 { margin: 0 0 6px; font-size: 17px; }
+  .steps p { margin: 0; color: var(--muted); font-size: 15px; }
+
+  .tour { display: flex; flex-direction: column; gap: 56px; }
+  .tour-row { display: grid; grid-template-columns: 1fr 2fr; gap: 32px; align-items: center; }
+  .tour-row:nth-child(even) { grid-template-columns: 2fr 1fr; }
+  .tour-row:nth-child(even) .tour-text { order: 2; }
+  .tour-text h3 { margin: 0 0 8px; font-size: 20px; }
+  .tour-text p { margin: 0; color: var(--muted); font-size: 15px; }
+  .tour-row img {
+    width: 100%; height: auto; display: block; border-radius: 8px;
+    border: 1px solid var(--border); box-shadow: 0 16px 40px rgba(0,0,0,.45);
+  }
+  @media (max-width: 800px) {
+    .tour-row, .tour-row:nth-child(even) { grid-template-columns: 1fr; gap: 16px; }
+    .tour-row:nth-child(even) .tour-text { order: 0; }
+  }
+
+  footer { border-top: 1px solid var(--border); padding: 28px 0; color: var(--muted); font-size: 14px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+
+  @media (max-width: 560px) {
+    nav a:not(.gh) { display: none; }
+    .hero { padding-top: 48px; }
+    section { padding: 48px 0; }
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="wrap">
+    <a class="brand" href="#"><img src="icon.png" alt="">RC Desktop</a>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#tour">Tour</a>
+      <a href="#install">Install</a>
+      <a class="gh" href="https://github.com/ricardoborges/rcdesktop">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+  <div class="hero wrap">
+    <h1>A desktop for WSL Containers</h1>
+    <p class="lead">Manage containers, images, volumes and Compose stacks running on <code>wslc.exe</code>. Like Docker Desktop, without dragging a whole Electron app along.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/ricardoborges/rcdesktop/releases/latest/download/rcdesktop-setup.exe">Download for Windows</a>
+      <a class="btn" href="https://github.com/ricardoborges/rcdesktop">View on GitHub</a>
+    </div>
+    <p class="meta">Windows 11 · x64 &amp; ARM64 · No admin rights · MIT</p>
+    <div class="shot">
+      <img src="dashboard.png" alt="RC Desktop dashboard showing running containers, images, volumes and the WSLC runtime environment" width="1102" height="677">
+    </div>
+  </div>
+
+  <section id="features">
+    <div class="wrap">
+      <h2>What it does</h2>
+      <p class="sub">Rust + Slint. It starts fast, uses little memory, and just calls <code>wslc.exe</code> underneath.</p>
+      <div class="grid">
+        <div class="card">
+          <h3>Containers &amp; stacks</h3>
+          <p>Start, stop, restart and remove containers. Compose projects are grouped into stacks you can start, stop or take down at once.</p>
+        </div>
+        <div class="card">
+          <h3>Deploy three ways</h3>
+          <p>A form with a live <code>wslc run</code> preview, a pasted <code>docker-compose.yml</code>, or a <code>docker run</code> command converted for you.</p>
+        </div>
+        <div class="card">
+          <h3>Compose with rcompose</h3>
+          <p>wslc has no compose command, so RC Desktop ships with <a href="https://github.com/ricardoborges/rcompose">rcompose</a> and streams its output into the app.</p>
+        </div>
+        <div class="card">
+          <h3>Logs, inspect, shell</h3>
+          <p>View logs and <code>inspect</code> output, or open a shell in a container through Windows Terminal.</p>
+        </div>
+        <div class="card">
+          <h3>Images, volumes, networks</h3>
+          <p>Pull and remove images, delete volumes and networks. Published ports are links straight to <code>localhost</code>.</p>
+        </div>
+        <div class="card">
+          <h3>Lives in the tray</h3>
+          <p>Keeps running when closed, shows how many containers are up, can start with Windows, and has a shortcut to <code>wsl --shutdown</code>.</p>
+        </div>
+      </div>
+      <p class="note" style="margin-top:24px">wslc doesn't like being called concurrently: two calls at once can fail with <code>ERROR_SHARING_VIOLATION</code>. RC Desktop runs every command through a single queue and retries with backoff.</p>
+    </div>
+  </section>
+
+  <section id="tour">
+    <div class="wrap">
+      <h2>A quick tour</h2>
+      <p class="sub">Everything you'd reach for in a container desktop, on top of wslc.</p>
+      <div class="tour">
+        <div class="tour-row">
+          <div class="tour-text">
+            <h3>Stacks and containers</h3>
+            <p>Compose projects show up as stacks with their running count. Expand one to stop, restart, open a shell, read logs or inspect each container. Published ports open in your browser.</p>
+          </div>
+          <img src="containers.png" alt="Containers page with a Compose stack expanded into its containers, status badges and published ports" width="1102" height="677" loading="lazy">
+        </div>
+        <div class="tour-row">
+          <div class="tour-text">
+            <h3>Deploy from Compose</h3>
+            <p>Paste or open a <code>docker-compose.yml</code>, see the rcompose command it will run, and deploy the stack. Prefer a form or a <code>docker run</code> line? Those tabs are right there.</p>
+          </div>
+          <img src="compose.png" alt="Deploy container page on the Compose tab with a sample compose file and the plan panel" width="1102" height="677" loading="lazy">
+        </div>
+        <div class="tour-row">
+          <div class="tour-text">
+            <h3>Runtime at a glance</h3>
+            <p>The WSLC page shows wslc, kernel and Windows versions, active sessions, where the settings file and rcompose live, and links to the docs.</p>
+          </div>
+          <img src="wslc.png" alt="WSLC page with runtime versions, sessions, settings file path and resource links" width="1102" height="677" loading="lazy">
+        </div>
+        <div class="tour-row">
+          <div class="tour-text">
+            <h3>One-click cleanup</h3>
+            <p>Prune stopped containers, dangling or unused images, networks and volumes. Each button tells you exactly which <code>wslc … prune</code> it runs.</p>
+          </div>
+          <img src="cleanup.png" alt="Cleanup panel with buttons to prune containers, images, networks and volumes" width="842" height="361" loading="lazy">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="wrap">
+      <h2>Install</h2>
+      <p class="sub">You need Windows 11 with the WSL container preview (<code>wslc.exe</code>) installed.</p>
+      <div class="steps">
+        <div>
+          <h3>Installer</h3>
+          <p>Download <a href="https://github.com/ricardoborges/rcdesktop/releases/latest/download/rcdesktop-setup.exe"><code>rcdesktop-setup.exe</code></a> and run it. It installs per user with rcompose, a Start menu shortcut and an uninstaller.</p>
+        </div>
+        <div>
+          <h3>Portable zip</h3>
+          <p>Grab the <code>.zip</code> for your architecture from the <a href="https://github.com/ricardoborges/rcdesktop/releases/latest">latest release</a>, unzip anywhere and run <code>rcdesktop.exe</code>.</p>
+        </div>
+        <div>
+          <h3>From source</h3>
+          <p>Rust 1.80+. There's a mock mode with fake data if you don't have wslc.</p>
+          <pre><code>cargo run --release
+cargo run -- --mock</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>RC Desktop · MIT License</span>
+    <a href="https://github.com/ricardoborges/rcdesktop">github.com/ricardoborges/rcdesktop</a>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -6,6 +6,8 @@ I wanted something like Docker Desktop or Rancher Desktop for wslc, without drag
 
 It's early and built for my own use, so expect rough edges.
 
+![RC Desktop dashboard](docs/images/dashboard.png)
+
 ## What it does
 
 - Lists containers, with compose projects grouped into stacks you can start/stop at once, or remove like `compose down` (containers and networks go, volumes stay)
